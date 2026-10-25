@@ -23,6 +23,13 @@ resource "proxmox_virtual_environment_container" "this" {
       }
     }
 
+    dynamic "dns" {
+      for_each = length(var.dns_servers) > 0 ? [1] : []
+      content {
+        servers = var.dns_servers
+      }
+    }
+
     dynamic "user_account" {
       for_each = length(var.ssh_public_keys) > 0 ? [1] : []
       content {

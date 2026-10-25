@@ -17,10 +17,10 @@ resource "terraform_data" "subnet_router" {
     input = { host = local.proxmox_host }
 
     connection {
-        type  = "ssh"
-        host  = self.input.host
-        user  = "root"
-        agent = true
+        type        = "ssh"
+        host        = self.input.host
+        user        = "root"
+        private_key = file(pathexpand("~/.ssh/id_ed25519"))
     }
 
     provisioner "remote-exec" {

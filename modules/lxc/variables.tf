@@ -61,6 +61,12 @@ variable "ipv6_address" {
   description = "null to leave IPv6 unconfigured, \"dhcp\", \"auto\" or a CIDR"
 }
 
+variable "dns_servers" {
+  type        = list(string)
+  default     = []
+  description = "Empty to inherit the Proxmox host's resolv.conf"
+}
+
 variable "ssh_public_keys" {
   type    = list(string)
   default = []
