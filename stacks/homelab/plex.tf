@@ -17,7 +17,8 @@ module "plex" {
     mount_points = [{ volume = "/srv/media", path = "/mnt/media" }]
 }
 
+# Reached through the subnet router now, so it no longer runs tailscale itself
 moved {
-    from = proxmox_virtual_environment_container.plex
+    from = module.plex.module.lxc.proxmox_virtual_environment_container.this
     to   = module.plex.proxmox_virtual_environment_container.this
 }

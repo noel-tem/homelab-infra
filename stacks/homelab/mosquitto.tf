@@ -1,5 +1,6 @@
 locals {
     node = "live-laugh-homelab"
+    proxmox_host = "192.168.0.50"
     debian_template = "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst"
     ssh_keys = [trimspace(file(pathexpand("~/.ssh/id_ed25519.pub")))]
 }
@@ -14,8 +15,4 @@ module "mosquitto" {
     ipv4_address = "192.168.0.20/24"
     ssh_public_keys = local.ssh_keys
     tags = ["telemetry"]
-}
-
-output "mosquitto_ip" {
-    value = module.mosquitto.ipv4
 }
