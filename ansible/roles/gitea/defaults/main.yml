@@ -1,0 +1,3 @@
+gitea_version: 28.2.0
+gitea_sha256: 15681fc615d56611c274f52803fef4d6d5316b620f93b677dd4b831a74e50b9f
+gitea_url: https://dl.gitea.com/gitea/{{ gitea_version }}/gitea-{{ gitea_version }}-linux-amd64

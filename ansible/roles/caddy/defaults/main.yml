@@ -1,0 +1,2 @@
+caddy_domain: "{{ dns_domain }}"
+caddy_proxied_services: "{{ proxied_services }}"

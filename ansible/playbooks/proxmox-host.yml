@@ -1,0 +1,4 @@
+- name: Configure the Proxmox host
+  hosts: proxmox
+  roles:
+    - subnet_router

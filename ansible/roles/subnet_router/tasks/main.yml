@@ -1,0 +1,48 @@
+- name: Enable IP forwarding
+  ansible.builtin.copy:
+    content: "net.ipv4.ip_forward = 1\n"
+    dest: /etc/sysctl.d/99-tailscale.conf
+    mode: "0644"
+  notify: Apply sysctl
+
+- name: Install Tailscale
+  ansible.builtin.shell: curl -fsSL https://tailscale.com/install.sh | sh
+  args:
+    creates: /usr/bin/tailscale
+
+- name: Read Tailscale status
+  ansible.builtin.command: tailscale status --json
+  register: subnet_router_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# To rejoin, mint a fresh key first: tofu apply -replace=tailscale_tailnet_key.subnet_router
+- name: Join the tailnet
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - up
+      - --auth-key={{ subnet_router_auth_key }}
+      - --hostname={{ subnet_router_hostname }}
+      - --advertise-routes={{ subnet_router_routes | join(',') }}
+  no_log: true
+  when: (subnet_router_status.stdout | from_json).BackendState | default('') != 'Running'
+
+- name: Read Tailscale prefs
+  ansible.builtin.command: tailscale debug prefs
+  register: subnet_router_prefs
+  changed_when: false
+  check_mode: false
+
+# Changes the hostname and routes without logging in again
+- name: Update hostname and routes
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - set
+      - --hostname={{ subnet_router_hostname }}
+      - --advertise-routes={{ subnet_router_routes | join(',') }}
+  vars:
+    prefs: "{{ subnet_router_prefs.stdout | from_json }}"
+  when: prefs.Hostname != subnet_router_hostname or (prefs.AdvertiseRoutes | default([], true) | sort) != (subnet_router_routes | sort)

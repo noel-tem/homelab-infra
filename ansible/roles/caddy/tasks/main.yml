@@ -1,0 +1,19 @@
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Write Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: /etc/caddy/Caddyfile
+    mode: "0644"
+    validate: caddy validate --adapter caddyfile --config %s
+  notify: Reload Caddy
+
+- name: Enable and start Caddy
+  ansible.builtin.systemd_service:
+    name: caddy
+    enabled: true
+    state: started

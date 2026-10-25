@@ -1,0 +1,4 @@
+- name: Configure Gitea
+  hosts: gitea
+  roles:
+    - gitea

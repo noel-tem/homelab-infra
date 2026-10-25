@@ -1,0 +1,23 @@
+all:
+  children:
+    proxmox:
+      hosts:
+        live-laugh-homelab:
+          ansible_host: 192.168.0.50
+          ansible_user: root
+          ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+    # Reached through the Proxmox host with `pct exec`, the same path the Tofu provisioners use
+    lxc:
+      vars:
+        ansible_connection: community.proxmox.proxmox_pct_remote
+        ansible_host: 192.168.0.50
+        ansible_user: root
+        ansible_private_key_file: ~/.ssh/id_ed25519
+        ansible_python_interpreter: /usr/bin/python3
+      hosts:
+        pihole:
+          proxmox_vmid: 100
+        caddy:
+          proxmox_vmid: 105
+        gitea:
+          proxmox_vmid: 106

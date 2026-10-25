@@ -1,14 +1,7 @@
 # Reverse proxy so services are reachable at http://<name>.home.arpa without a port
+# Ansible installs and configures Caddy (ansible/roles/caddy)
 locals {
     caddy_ip = "192.168.0.21"
-    proxied_services = {
-        plex          = "192.168.0.14:32400"
-        pihole        = "192.168.0.10:80"
-        homeassistant = "192.168.0.83:8123"
-        gitea         = "192.168.0.22:3000"
-    }
-    # http:// prefix keeps Caddy from trying to get certificates
-    caddyfile = join("\n", [for name, upstream in local.proxied_services : "http://${name}.${local.dns_domain} {\n\treverse_proxy ${upstream}\n}\n"])
 }
 
 module "caddy" {
@@ -23,25 +16,4 @@ module "caddy" {
     dns_servers = ["192.168.0.10"]
     ssh_public_keys = local.ssh_keys
     tags = ["proxy"]
-}
-
-resource "terraform_data" "caddy" {
-    triggers_replace = [module.caddy.id, local.caddyfile]
-    input = { host = local.proxmox_host }
-
-    connection {
-        type        = "ssh"
-        host        = self.input.host
-        user        = "root"
-        private_key = file(pathexpand("~/.ssh/id_ed25519"))
-    }
-
-    provisioner "remote-exec" {
-        inline = [
-            "set -e",
-            "pct exec ${module.caddy.id} -- sh -c 'command -v caddy || (apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y caddy)'",
-            "pct exec ${module.caddy.id} -- sh -c 'echo ${base64encode(local.caddyfile)} | base64 -d > /etc/caddy/Caddyfile'",
-            "pct exec ${module.caddy.id} -- systemctl reload-or-restart caddy",
-        ]
-    }
 }

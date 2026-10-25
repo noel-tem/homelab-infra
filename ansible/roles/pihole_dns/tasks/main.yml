@@ -1,0 +1,11 @@
+- name: Read local DNS records
+  ansible.builtin.command: pihole-FTL --config dns.hosts
+  register: pihole_dns_current
+  changed_when: false
+  check_mode: false
+
+# Overwrites Pi-hole's whole dns.hosts list, so records added in the web UI get replaced
+- name: Set local DNS records
+  ansible.builtin.command:
+    argv: [pihole-FTL, --config, dns.hosts, "{{ pihole_dns_hosts | to_json }}"]
+  when: pihole_dns_current.stdout != "[ " ~ (pihole_dns_hosts | join(", ")) ~ " ]"

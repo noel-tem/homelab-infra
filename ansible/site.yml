@@ -1,0 +1,19 @@
+- ansible.builtin.import_playbook: playbooks/proxmox-host.yml
+
+- name: Bootstrap Python in containers
+  hosts: lxc
+  gather_facts: false
+  tasks:
+    # Modules need Python, so install it with raw before anything else runs
+    # The pct connection doesn't quote raw commands, so without a shell the Proxmox host would run everything after ||
+    - name: Install python3
+      ansible.builtin.raw: command -v python3 || (apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y python3)
+      args:
+        executable: /bin/sh
+      register: python_install
+      changed_when: "'Setting up python3' in python_install.stdout"
+
+- ansible.builtin.import_playbook: playbooks/caddy.yml
+- ansible.builtin.import_playbook: playbooks/gitea.yml
+# After Caddy, so names don't point at it until it's serving them
+- ansible.builtin.import_playbook: playbooks/pihole.yml

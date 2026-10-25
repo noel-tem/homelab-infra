@@ -1,0 +1,57 @@
+- name: Install git
+  ansible.builtin.apt:
+    name: git
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create git group
+  ansible.builtin.group:
+    name: git
+    system: true
+
+- name: Create git user
+  ansible.builtin.user:
+    name: git
+    group: git
+    system: true
+    shell: /bin/bash
+    home: /home/git
+
+# Downloads only when the file is missing or its checksum doesn't match
+- name: Install Gitea binary
+  ansible.builtin.get_url:
+    url: "{{ gitea_url }}"
+    checksum: sha256:{{ gitea_sha256 }}
+    dest: /usr/local/bin/gitea
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart Gitea
+
+# The installer writes app.ini, so /etc/gitea stays writable by git until it's run
+- name: Create Gitea directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: git
+    group: git
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /var/lib/gitea, mode: "0750" }
+    - { path: /var/lib/gitea/custom, mode: "0755" }
+    - { path: /var/lib/gitea/data, mode: "0755" }
+    - { path: /var/lib/gitea/log, mode: "0755" }
+    - { path: /etc/gitea, mode: "0750" }
+
+- name: Write systemd unit
+  ansible.builtin.template:
+    src: gitea.service.j2
+    dest: /etc/systemd/system/gitea.service
+    mode: "0644"
+  notify: Restart Gitea
+
+- name: Enable and start Gitea
+  ansible.builtin.systemd_service:
+    name: gitea
+    enabled: true
+    state: started

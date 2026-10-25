@@ -1,0 +1,9 @@
+{# http:// prefix keeps Caddy from trying to get certificates #}
+{% for name, upstream in caddy_proxied_services | dictsort %}
+{% if not loop.first %}
+
+{% endif %}
+http://{{ name }}.{{ caddy_domain }} {
+	reverse_proxy {{ upstream }}
+}
+{% endfor %}
