@@ -55,6 +55,12 @@ variable "ipv4_gateway" {
   default = "192.168.0.1"
 }
 
+variable "ipv6_address" {
+  type        = string
+  default     = null
+  description = "null to leave IPv6 unconfigured, \"dhcp\", \"auto\" or a CIDR"
+}
+
 variable "ssh_public_keys" {
   type    = list(string)
   default = []
@@ -83,4 +89,28 @@ variable "nesting" {
 variable "tags" {
   type    = list(string)
   default = []
+}
+variable "device_passthrough" {
+  type    = list(string)
+  default = []
+}
+
+variable "interface_name" {
+  type    = string
+  default = "eth0"
+}
+
+variable "firewall" {
+  type    = bool
+  default = false
+}
+
+variable "mount_points" {
+  type = list(object({
+    volume = string
+    path   = string
+    backup = optional(bool, false)
+  }))
+  default     = []
+  description = "Bind mounts or volumes, e.g. { volume = \"/srv/media\", path = \"/mnt/media\" }"
 }

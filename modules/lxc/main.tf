@@ -14,10 +14,20 @@ resource "proxmox_virtual_environment_container" "this" {
         address = var.ipv4_address
         gateway = var.ipv4_address == "dhcp" ? null : var.ipv4_gateway
       }
+
+      dynamic "ipv6" {
+        for_each = var.ipv6_address == null ? [] : [1]
+        content {
+          address = var.ipv6_address
+        }
+      }
     }
 
-    user_account {
-      keys = var.ssh_public_keys
+    dynamic "user_account" {
+      for_each = length(var.ssh_public_keys) > 0 ? [1] : []
+      content {
+        keys = var.ssh_public_keys
+      }
     }
   }
 
@@ -41,12 +51,33 @@ resource "proxmox_virtual_environment_container" "this" {
   }
 
   network_interface {
-    name   = "eth0"
-    bridge = "vmbr0"
+    name     = var.interface_name
+    bridge   = "vmbr0"
+    firewall = var.firewall
   }
 
-  features {
-    nesting = var.nesting
+  # Omitted when nesting is off: privileged containers only accept features from root@pam
+  dynamic "features" {
+    for_each = var.nesting ? [1] : []
+    content {
+      nesting = true
+    }
+  }
+
+  dynamic "mount_point" {
+    for_each = var.mount_points
+    content {
+      volume = mount_point.value.volume
+      path   = mount_point.value.path
+      backup = mount_point.value.backup
+    }
+  }
+
+  dynamic "device_passthrough" {
+    for_each = var.device_passthrough
+    content {
+      path = device_passthrough.value
+    }
   }
 
   lifecycle {
