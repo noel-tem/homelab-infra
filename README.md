@@ -2,7 +2,7 @@
 
 Infrastructure for my home Proxmox server (`live-laugh-homelab`, 192.168.0.50).
 
-- **OpenTofu** (`stacks/homelab/`) creates the guests and owns the Tailscale keys/routes.
+- **OpenTofu** creates the guests (`stacks/homelab/`) and owns the Tailscale key, route approval and split DNS (`stacks/tailnet/`).
 - **Ansible** (`ansible/`) configures everything inside them, plus the Proxmox host itself.
 
 ## Services
@@ -36,7 +36,8 @@ Tofu also sets a split-DNS rule on the tailnet that sends `home.arpa` lookups to
 
 ```
 modules/lxc/        reusable LXC container module
-stacks/homelab/     the actual guests, Tailscale key, route approval + split DNS
+stacks/homelab/     the actual guests
+stacks/tailnet/     Tailscale key, route approval + split DNS (kept apart so guest changes can't touch remote access)
 ansible/
   site.yml          runs everything
   playbooks/        one per host/service
@@ -79,7 +80,9 @@ tofu plan
 tofu apply
 ```
 
-State lives in the R2 bucket at `homelab/terraform.tfstate`, encrypted with `TF_VAR_state_passphrase` before upload. Keep the passphrase in a password manager too: without it the state can't be read.
+The Tailscale side is the same in `stacks/tailnet`; it only needs the Tailscale and R2 credentials.
+
+State lives in the R2 bucket at `homelab/terraform.tfstate` and `tailnet/terraform.tfstate`, each encrypted with `TF_VAR_state_passphrase` before upload. Keep the passphrase in a password manager too: without it the state can't be read.
 
 ### Configure them
 
@@ -108,7 +111,7 @@ After that, change it with `smbpasswd media` inside the container. The share is 
 ## Gotchas
 
 - **Containers use Pi-hole for DNS** (`dns_servers = ["192.168.0.10"]`) because the host's `resolv.conf` points at Tailscale's resolver, which containers can't reach.
-- **Rejoining Tailscale**: the auth key is single-use and expires an hour after creation. Mint a fresh one with `tofu apply -replace=tailscale_tailnet_key.subnet_router`, then rerun Ansible.
+- **Rejoining Tailscale**: the auth key is single-use and expires an hour after creation. Mint a fresh one with `tofu -chdir=stacks/tailnet apply -replace=tailscale_tailnet_key.subnet_router`, then rerun Ansible.
 - **GPU passthrough is done by Ansible, not Tofu**: device passthrough needs `root@pam`, and Tofu uses an API token. The module ignores `device_passthrough` changes for the same reason.
 - **Changing the LXC template** won't rebuild existing containers; the module ignores template changes. Tofu downloads the template (`proxmox_download_file.debian_13` in `locals.tf`), so bump its URL and checksum to change it.
 - **Tailscale OAuth scope errors** show up as 404s, not 403s.

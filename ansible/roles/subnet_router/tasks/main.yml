@@ -17,7 +17,7 @@
   failed_when: false
   check_mode: false
 
-# To rejoin, mint a fresh key first: tofu apply -replace=tailscale_tailnet_key.subnet_router
+# To rejoin, mint a fresh key first: tofu -chdir=stacks/tailnet apply -replace=tailscale_tailnet_key.subnet_router
 - name: Join the tailnet
   ansible.builtin.command:
     argv:
