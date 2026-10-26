@@ -3,7 +3,6 @@ home_subnet: 192.168.0.0/24
 caddy_ip: 192.168.0.21
 # Each one gets http://<name>.<dns_domain> on Caddy and a Pi-hole record pointing at Caddy
 proxied_services:
-  plex: 192.168.0.14:32400
   pihole: 192.168.0.10:80
   homeassistant: 192.168.0.83:8123
   gitea: 192.168.0.22:3000
