@@ -7,14 +7,16 @@ Infrastructure for my home Proxmox server (`live-laugh-homelab`, 192.168.0.50).
 
 ## Services
 
-| Guest | ID | IP | URL | Notes |
+| Guest | ID | Direct address | Name | Notes |
 |---|---|---|---|---|
-| Pi-hole | 100 | 192.168.0.10 | http://pihole.home.arpa | LAN DNS; holds the `*.home.arpa` records |
-| Home Assistant OS | 102 | 192.168.0.83 | http://homeassistant.home.arpa | VM from community-scripts, imported into Tofu |
-| Mosquitto | 104 | 192.168.0.20 | — | MQTT broker, no Ansible config yet |
-| Caddy | 105 | 192.168.0.21 | — | Reverse proxy for every `*.home.arpa` name |
-| Gitea | 106 | 192.168.0.22 | http://gitea.home.arpa | First visit runs the web installer |
-| Jellyfin | 107 | 192.168.0.23 | http://jellyfin.home.arpa | iGPU passthrough, 100G media volume shared over SMB |
+| Pi-hole | 100 | http://192.168.0.10/admin | http://pihole.home.arpa | LAN DNS (port 53); holds the `*.home.arpa` records |
+| Home Assistant OS | 102 | http://192.168.0.83:8123 | http://homeassistant.home.arpa | VM from community-scripts, imported into Tofu |
+| Mosquitto | 104 | `mqtt://192.168.0.20:1883` | — | MQTT broker, no Ansible config yet |
+| Caddy | 105 | http://192.168.0.21 | — | Reverse proxy for every `*.home.arpa` name |
+| Gitea | 106 | http://192.168.0.22:3000 | http://gitea.home.arpa | First visit runs the web installer |
+| Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | iGPU passthrough, 100G media volume shared over SMB at `\\192.168.0.23\media` |
+
+The direct addresses work anywhere the LAN is reachable, including over Tailscale. The `.home.arpa` names only resolve on the LAN unless the tailnet's DNS points `home.arpa` at Pi-hole.
 
 Everything except Home Assistant is an unprivileged Debian 13 LXC built from [`modules/lxc`](modules/lxc/).
 
@@ -68,7 +70,7 @@ tofu plan
 tofu apply
 ```
 
-State is local and encrypted with `TF_VAR_state_passphrase`, so don't lose it.
+State is local and encrypted with `TF_VAR_state_passphrase` don't lose it.
 
 ### Configure them
 
