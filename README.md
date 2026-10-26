@@ -16,7 +16,7 @@ Infrastructure for my home Proxmox server (`live-laugh-homelab`, 192.168.0.50).
 | Gitea | 106 | http://192.168.0.22:3000 | http://gitea.home.arpa | First visit runs the web installer |
 | Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | iGPU passthrough, 100G media volume shared over SMB at `\\192.168.0.23\media` |
 
-The direct addresses work anywhere the LAN is reachable, including over Tailscale. The `.home.arpa` names only resolve on the LAN unless the tailnet's DNS points `home.arpa` at Pi-hole.
+The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
 Everything except Home Assistant is an unprivileged Debian 13 LXC built from [`modules/lxc`](modules/lxc/).
 
@@ -30,11 +30,13 @@ Note: the Pi-hole role overwrites the whole local DNS list, so records added in 
 
 The Proxmox host runs Tailscale as a subnet router advertising `192.168.0.0/24` to the tailnet. Tofu mints the auth key and approves the route; Ansible installs Tailscale and joins the host. Nothing inside the containers runs Tailscale.
 
+Tofu also sets a split-DNS rule on the tailnet that sends `home.arpa` lookups to Pi-hole over that route, so the names work remotely too.
+
 ## Layout
 
 ```
 modules/lxc/        reusable LXC container module
-stacks/homelab/     the actual guests, Tailscale key + route approval
+stacks/homelab/     the actual guests, Tailscale key, route approval + split DNS
 ansible/
   site.yml          runs everything
   playbooks/        one per host/service
@@ -47,7 +49,7 @@ ansible/
 - OpenTofu and Ansible (`ansible-core` + `paramiko`, e.g. via pipx)
 - An SSH key at `~/.ssh/id_ed25519` that can log in as root on the Proxmox host
 - A Proxmox API token
-- A Tailscale OAuth client with scopes `auth_keys` (tag `tag:homelab`), `devices:core:read` and `devices:routes`
+- A Tailscale OAuth client with scopes `auth_keys` (tag `tag:homelab`), `devices:core:read`, `devices:routes` and `dns`. Scopes can't be edited later, so adding one means creating a new client and swapping it into `.env`
 
 Secrets live in a gitignored `.env` at the repo root (loaded by direnv via `.envrc`):
 
