@@ -21,3 +21,5 @@ all:
           proxmox_vmid: 105
         gitea:
           proxmox_vmid: 106
+        jellyfin:
+          proxmox_vmid: 107

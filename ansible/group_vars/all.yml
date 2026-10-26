@@ -6,3 +6,4 @@ proxied_services:
   pihole: 192.168.0.10:80
   homeassistant: 192.168.0.83:8123
   gitea: 192.168.0.22:3000
+  jellyfin: 192.168.0.23:8096

@@ -1,0 +1,12 @@
+[global]
+   server role = standalone server
+   map to guest = never
+
+[{{ media_share_name }}]
+   path = {{ media_share_path }}
+   valid users = {{ media_share_user }}
+   read only = no
+   force user = {{ media_share_owner }}
+   force group = {{ media_share_owner }}
+   create mask = 0644
+   directory mask = 0755

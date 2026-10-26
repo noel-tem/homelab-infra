@@ -116,7 +116,8 @@ variable "mount_points" {
     volume = string
     path   = string
     backup = optional(bool, false)
+    size   = optional(string)
   }))
   default     = []
-  description = "Bind mounts or volumes, e.g. { volume = \"/srv/media\", path = \"/mnt/media\" }"
+  description = "Bind mounts or volumes, e.g. { volume = \"/srv/data\", path = \"/mnt/data\" }, or { volume = \"local-lvm\", size = \"100G\", ... } for a new volume"
 }

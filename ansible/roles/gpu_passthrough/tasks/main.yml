@@ -1,0 +1,19 @@
+# The node is created with the container's own render gid, so its users get access without remapping
+- name: Read render group in the container
+  ansible.builtin.command: pct exec {{ gpu_passthrough_vmid }} -- getent group render
+  register: gpu_passthrough_render
+  changed_when: false
+  check_mode: false
+
+- name: Read container config
+  ansible.builtin.command: pct config {{ gpu_passthrough_vmid }}
+  register: gpu_passthrough_config
+  changed_when: false
+  check_mode: false
+
+- name: Pass the render node through
+  vars:
+    gpu_passthrough_entry: "{{ gpu_passthrough_device }},gid={{ gpu_passthrough_render.stdout.split(':')[2] }}"
+  ansible.builtin.command: pct set {{ gpu_passthrough_vmid }} --dev0 {{ gpu_passthrough_entry }}
+  when: "'dev0: ' ~ gpu_passthrough_entry not in gpu_passthrough_config.stdout"
+  notify: Reboot container

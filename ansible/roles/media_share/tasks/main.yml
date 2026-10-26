@@ -1,0 +1,52 @@
+- name: Install Samba
+  ansible.builtin.apt:
+    name: samba
+    # Recommends pull in the AD domain controller and winbind
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 3600
+
+# Only logs in to Samba; files are written as the share owner
+- name: Create share user
+  ansible.builtin.user:
+    name: "{{ media_share_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Write smb.conf
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    mode: "0644"
+    validate: testparm -s %s
+  notify: Restart Samba
+
+- name: Read Samba accounts
+  ansible.builtin.command: pdbedit -L
+  register: media_share_accounts
+  changed_when: false
+  # Samba isn't installed yet on a first dry run
+  failed_when: media_share_accounts.rc != 0 and not ansible_check_mode
+  check_mode: false
+
+# Set once; change it later with `smbpasswd media` inside the container
+- name: Add Samba account
+  when: (media_share_user ~ ':') not in media_share_accounts.stdout
+  block:
+    - name: Require a password for the new account
+      ansible.builtin.assert:
+        that: media_share_password | length > 0
+        fail_msg: Set MEDIA_SHARE_PASSWORD to create the {{ media_share_user }} Samba account
+
+    - name: Set Samba password
+      ansible.builtin.command:
+        cmd: smbpasswd -a -s {{ media_share_user }}
+        stdin: "{{ media_share_password }}\n{{ media_share_password }}"
+      no_log: true
+
+- name: Enable and start Samba
+  ansible.builtin.systemd_service:
+    name: smbd
+    enabled: true
+    state: started

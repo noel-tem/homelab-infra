@@ -1,0 +1,12 @@
+- name: Configure Jellyfin
+  hosts: jellyfin
+  roles:
+    - jellyfin
+    # SMB share of the media volume for copying files in
+    - media_share
+
+# After Jellyfin is installed, so its user is already in the container's render group
+- name: Give Jellyfin the iGPU
+  hosts: proxmox
+  roles:
+    - gpu_passthrough

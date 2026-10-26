@@ -77,6 +77,7 @@ resource "proxmox_virtual_environment_container" "this" {
       volume = mount_point.value.volume
       path   = mount_point.value.path
       backup = mount_point.value.backup
+      size   = mount_point.value.size
     }
   }
 
@@ -89,6 +90,7 @@ resource "proxmox_virtual_environment_container" "this" {
 
   lifecycle {
     # Updating the template later shouldn't rebuild existing containers
-    ignore_changes = [operating_system[0].template_file_id]
+    # Passthrough is root@pam only, so Ansible sets it on the host (ansible/roles/gpu_passthrough)
+    ignore_changes = [operating_system[0].template_file_id, device_passthrough]
   }
 }
