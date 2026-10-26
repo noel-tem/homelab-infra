@@ -62,6 +62,10 @@ export PROXMOX_VE_API_TOKEN=user@realm!token=secret
 export TF_VAR_state_passphrase=...           # encrypts Tofu state and plans
 export TAILSCALE_OAUTH_CLIENT_ID=...
 export TAILSCALE_OAUTH_CLIENT_SECRET=...
+export TF_VAR_r2_account_id=...             # Cloudflare account ID
+export TF_VAR_r2_bucket=...                 # R2 bucket holding the state
+export AWS_ACCESS_KEY_ID=...                # R2 API token (Object Read & Write on that bucket)
+export AWS_SECRET_ACCESS_KEY=...
 ```
 
 ## Usage
@@ -75,7 +79,7 @@ tofu plan
 tofu apply
 ```
 
-State is local and encrypted with `TF_VAR_state_passphrase` don't lose it.
+State lives in the R2 bucket at `homelab/terraform.tfstate`, encrypted with `TF_VAR_state_passphrase` before upload. Keep the passphrase in a password manager too: without it the state can't be read.
 
 ### Configure them
 
