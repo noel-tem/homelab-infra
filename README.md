@@ -82,6 +82,8 @@ tofu apply
 
 The Tailscale side is the same in `stacks/tailnet`; it only needs the Tailscale and R2 credentials.
 
+On a fresh build the host isn't on the tailnet yet, so it takes two applies: `tofu apply` (mints the auth key), then `ansible-playbook playbooks/proxmox-host.yml` within the hour (joins the host), then `tofu apply` again (approves the route).
+
 State lives in the R2 bucket at `homelab/terraform.tfstate` and `tailnet/terraform.tfstate`, each encrypted with `TF_VAR_state_passphrase` before upload. Keep the passphrase in a password manager too: without it the state can't be read.
 
 ### Configure them
