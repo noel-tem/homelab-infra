@@ -3,5 +3,5 @@ output "id" {
 }
 
 output "ipv4" {
-  value = try(proxmox_virtual_environment_container.this.ipv4["eth0"], null)
+  value = try(proxmox_virtual_environment_container.this.ipv4[var.interface_name], null)
 }

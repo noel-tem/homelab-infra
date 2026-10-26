@@ -8,4 +8,7 @@
 - name: Set local DNS records
   ansible.builtin.command:
     argv: [pihole-FTL, --config, dns.hosts, "{{ pihole_dns_hosts | to_json }}"]
-  when: pihole_dns_current.stdout != "[ " ~ (pihole_dns_hosts | join(", ")) ~ " ]"
+  # The output looks like "[ ip name, ip name ]", so compare its entries rather than the exact text
+  when: >-
+    pihole_dns_current.stdout | trim | regex_replace('^\\[|\\]$', '') | split(',')
+    | map('trim') | select | list != pihole_dns_hosts

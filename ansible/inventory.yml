@@ -3,23 +3,21 @@ all:
     proxmox:
       hosts:
         live-laugh-homelab:
-          ansible_host: 192.168.0.50
+          ansible_host: "{{ proxmox_host }}"
           ansible_user: root
           ansible_ssh_private_key_file: ~/.ssh/id_ed25519
-    # Reached through the Proxmox host with `pct exec`, the same path the Tofu provisioners use
+    # Reached through the Proxmox host with `pct exec`, so containers don't need sshd
     lxc:
       vars:
         ansible_connection: community.proxmox.proxmox_pct_remote
-        ansible_host: 192.168.0.50
+        ansible_host: "{{ proxmox_host }}"
         ansible_user: root
         ansible_private_key_file: ~/.ssh/id_ed25519
         ansible_python_interpreter: /usr/bin/python3
+        # IDs come from guests in group_vars/all.yml
+        proxmox_vmid: "{{ guests[inventory_hostname].vmid }}"
       hosts:
         pihole:
-          proxmox_vmid: 100
         caddy:
-          proxmox_vmid: 105
         gitea:
-          proxmox_vmid: 106
         jellyfin:
-          proxmox_vmid: 107

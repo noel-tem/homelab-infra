@@ -1,7 +1,7 @@
 terraform {
-    required_providers {
-        proxmox = {
-            source = "bpg/proxmox"
-        }
+  required_providers {
+    proxmox = {
+      source = "bpg/proxmox"
     }
+  }
 }

@@ -44,7 +44,7 @@ resource "proxmox_virtual_environment_vm" "homeassistant" {
   timeout_shutdown_vm = 1800
   timeout_start_vm    = 1800
   timeout_stop_vm     = 300
-  vm_id               = 102
+  vm_id               = local.guests.homeassistant.vmid
   agent {
     enabled = true
     timeout = "15m"

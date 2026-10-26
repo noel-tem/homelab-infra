@@ -41,12 +41,15 @@ ansible/
   site.yml          runs everything
   playbooks/        one per host/service
   roles/            caddy, gitea, jellyfin, media_share, gpu_passthrough, pihole_dns, subnet_router
-  group_vars/       shared vars (domain, Caddy IP, proxied services)
+  group_vars/       shared vars (guest IDs/IPs, domain, proxied services)
 ```
+
+Guest IDs and IPs live only in `guests` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml). Tofu reads that same file, so changing an address there updates both.
 
 ## Prerequisites
 
 - OpenTofu and Ansible (`ansible-core` + `paramiko`, e.g. via pipx)
+- Optional: [pre-commit](https://pre-commit.com) (`pre-commit install`) to run `tofu fmt`, `tofu validate` and `ansible-lint` on commit
 - An SSH key at `~/.ssh/id_ed25519` that can log in as root on the Proxmox host
 - A Proxmox API token
 - A Tailscale OAuth client with scopes `auth_keys` (tag `tag:homelab`), `devices:core:read`, `devices:routes` and `dns`. Scopes can't be edited later, so adding one means creating a new client and swapping it into `.env`
@@ -103,7 +106,7 @@ After that, change it with `smbpasswd media` inside the container. The share is 
 - **Containers use Pi-hole for DNS** (`dns_servers = ["192.168.0.10"]`) because the host's `resolv.conf` points at Tailscale's resolver, which containers can't reach.
 - **Rejoining Tailscale**: the auth key is single-use and expires an hour after creation. Mint a fresh one with `tofu apply -replace=tailscale_tailnet_key.subnet_router`, then rerun Ansible.
 - **GPU passthrough is done by Ansible, not Tofu**: device passthrough needs `root@pam`, and Tofu uses an API token. The module ignores `device_passthrough` changes for the same reason.
-- **Changing the LXC template** won't rebuild existing containers; the module ignores template changes.
+- **Changing the LXC template** won't rebuild existing containers; the module ignores template changes. Tofu downloads the template (`proxmox_download_file.debian_13` in `locals.tf`), so bump its URL and checksum to change it.
 - **Tailscale OAuth scope errors** show up as 404s, not 403s.
 - **Home Assistant**'s guest agent reports internal interfaces with changing MACs, so `mac_addresses` is ignored.
 

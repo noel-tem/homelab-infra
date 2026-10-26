@@ -1,9 +1,19 @@
 dns_domain: home.arpa
 home_subnet: 192.168.0.0/24
-caddy_ip: 192.168.0.21
+proxmox_host: 192.168.0.50
+# The one place guest IDs and addresses live; Tofu reads this file too (stacks/homelab/locals.tf)
+guests:
+  pihole: { vmid: 100, ip: 192.168.0.10 }
+  # DHCP; Tofu doesn't set this one, it's only here for proxied_services
+  homeassistant: { vmid: 102, ip: 192.168.0.83 }
+  mosquitto: { vmid: 104, ip: 192.168.0.20 }
+  caddy: { vmid: 105, ip: 192.168.0.21 }
+  gitea: { vmid: 106, ip: 192.168.0.22 }
+  jellyfin: { vmid: 107, ip: 192.168.0.23 }
+caddy_ip: "{{ guests.caddy.ip }}"
 # Each one gets http://<name>.<dns_domain> on Caddy and a Pi-hole record pointing at Caddy
 proxied_services:
-  pihole: 192.168.0.10:80
-  homeassistant: 192.168.0.83:8123
-  gitea: 192.168.0.22:3000
-  jellyfin: 192.168.0.23:8096
+  pihole: "{{ guests.pihole.ip }}:80"
+  homeassistant: "{{ guests.homeassistant.ip }}:8123"
+  gitea: "{{ guests.gitea.ip }}:3000"
+  jellyfin: "{{ guests.jellyfin.ip }}:8096"
