@@ -104,3 +104,4 @@ After that, change it with `smbpasswd media` inside the container. The share is 
 - **Changing the LXC template** won't rebuild existing containers; the module ignores template changes.
 - **Tailscale OAuth scope errors** show up as 404s, not 403s.
 - **Home Assistant**'s guest agent reports internal interfaces with changing MACs, so `mac_addresses` is ignored.
+
