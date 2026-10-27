@@ -21,6 +21,6 @@ module "jellyfin" {
   memory          = 2048
   disk_size       = 16
   # Separate volume for the library, kept out of the root disk and out of backups
-  mount_points = [{ volume = "local-lvm", size = "100G", path = "/mnt/media" }]
+  mount_points = [{ volume = "local-lvm", size = "40G", path = "/mnt/media" }]
   tags         = ["media"]
 }
