@@ -21,3 +21,5 @@ all:
         caddy:
         gitea:
         jellyfin:
+        uptimekuma:
+        metrics:

@@ -1,6 +1,6 @@
 locals {
   # false shuts the container down (and keeps it down across host reboots); data is kept
-  mosquitto_running = true
+  mosquitto_running = false
 }
 
 module "mosquitto" {

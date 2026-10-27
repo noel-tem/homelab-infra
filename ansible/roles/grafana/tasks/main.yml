@@ -1,0 +1,33 @@
+- name: Add Grafana apt repository
+  ansible.builtin.deb822_repository:
+    name: grafana
+    types: deb
+    uris: https://apt.grafana.com
+    suites: stable
+    components: main
+    signed_by: https://apt.grafana.com/gpg.key
+  register: grafana_repo
+
+- name: Install Grafana
+  ansible.builtin.apt:
+    name: grafana
+    update_cache: true
+    # A fresh repo isn't in the cache yet, even if the cache is under an hour old
+    cache_valid_time: "{{ 0 if grafana_repo is changed else 3600 }}"
+
+# Grafana runs on the same guest as InfluxDB, so it reads from localhost
+- name: Provision InfluxDB data source
+  ansible.builtin.template:
+    src: influxdb.yaml.j2
+    dest: /etc/grafana/provisioning/datasources/influxdb.yaml
+    owner: root
+    group: grafana
+    mode: "0640"
+  no_log: true
+  notify: Restart Grafana
+
+- name: Enable and start Grafana
+  ansible.builtin.systemd_service:
+    name: grafana-server
+    enabled: true
+    state: started

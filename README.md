@@ -15,6 +15,8 @@ Infrastructure for my home Proxmox server (`live-laugh-homelab`, 192.168.0.50).
 | Caddy | 105 | http://192.168.0.21 | — | Reverse proxy for every `*.home.arpa` name |
 | Gitea | 106 | http://192.168.0.22:3000 | http://gitea.home.arpa | First visit runs the web installer |
 | Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | iGPU passthrough, 100G media volume shared over SMB at `\\192.168.0.23\media` |
+| Uptime Kuma | 108 | http://192.168.0.24:3001 | http://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
+| Metrics | 109 | http://192.168.0.25:3000 | http://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -43,7 +45,8 @@ stacks/tailnet/     Tailscale key, route approval + split DNS (kept apart so gue
 ansible/
   site.yml          runs everything
   playbooks/        one per host/service
-  roles/            caddy, gitea, jellyfin, media_share, gpu_passthrough, pihole_dns, subnet_router
+  roles/            caddy, gitea, jellyfin, media_share, gpu_passthrough, pihole_dns, subnet_router,
+                    uptime_kuma, influxdb, grafana, metrics_server
   group_vars/       shared vars (guest IDs/IPs, domain, proxied services)
 ```
 
@@ -69,6 +72,8 @@ export TF_VAR_r2_account_id=...             # Cloudflare account ID
 export TF_VAR_r2_bucket=...                 # R2 bucket holding the state
 export AWS_ACCESS_KEY_ID=...                # R2 API token (Object Read & Write on that bucket)
 export AWS_SECRET_ACCESS_KEY=...
+export INFLUXDB_TOKEN=...                   # e.g. openssl rand -hex 32; Grafana and Proxmox use it on every run
+export INFLUXDB_PASSWORD=...                # InfluxDB admin; only read when InfluxDB is first set up
 ```
 
 ## Usage
@@ -111,6 +116,12 @@ MEDIA_SHARE_PASSWORD=... ansible-playbook playbooks/jellyfin.yml
 ```
 
 After that, change it with `smbpasswd media` inside the container. The share is `\\192.168.0.23\media`.
+
+### Monitoring
+
+`playbooks/metrics.yml` installs InfluxDB and Grafana, then points Proxmox's metric server (Datacenter → Metric Server) at InfluxDB. Proxmox pushes host and guest stats into the `proxmox` bucket, which keeps 30 days. Grafana already has InfluxDB as its data source. For dashboards, import [Proxmox [Flux]](https://grafana.com/grafana/dashboards/15356) (ID `15356`) under Dashboards → New → Import.
+
+Uptime Kuma's monitors and notifications are set up in its web UI. They aren't in this repo.
 
 ## Gotchas
 

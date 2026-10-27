@@ -1,0 +1,11 @@
+- name: Configure InfluxDB and Grafana
+  hosts: metrics
+  roles:
+    - influxdb
+    - grafana
+
+# After InfluxDB is set up, so the bucket exists when Proxmox starts writing
+- name: Send Proxmox metrics to InfluxDB
+  hosts: proxmox
+  roles:
+    - metrics_server

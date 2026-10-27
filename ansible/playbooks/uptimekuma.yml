@@ -1,0 +1,4 @@
+- name: Configure Uptime Kuma
+  hosts: uptimekuma
+  roles:
+    - uptime_kuma

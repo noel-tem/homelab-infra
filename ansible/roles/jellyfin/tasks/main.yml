@@ -6,12 +6,14 @@
     suites: "{{ ansible_facts['distribution_release'] }}"
     components: main
     signed_by: https://repo.jellyfin.org/jellyfin_team.gpg.key
+  register: jellyfin_repo
 
 - name: Install Jellyfin
   ansible.builtin.apt:
     name: jellyfin
     update_cache: true
-    cache_valid_time: 3600
+    # A fresh repo isn't in the cache yet, even if the cache is under an hour old
+    cache_valid_time: "{{ 0 if jellyfin_repo is changed else 3600 }}"
 
 # The volume is created root-owned; Jellyfin needs to write metadata next to the media
 - name: Give Jellyfin the media volume

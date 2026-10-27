@@ -1,0 +1,5 @@
+influxdb_admin_user: admin
+# Only read on the first run, when InfluxDB is set up; never needs to be in the repo
+influxdb_admin_password: "{{ lookup('ansible.builtin.env', 'INFLUXDB_PASSWORD') }}"
+# Proxmox writes every few seconds per guest, so keep a month
+influxdb_retention_days: 30

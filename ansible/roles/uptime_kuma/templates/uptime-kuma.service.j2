@@ -1,0 +1,14 @@
+[Unit]
+Description=Uptime Kuma
+After=network.target
+
+[Service]
+User=uptime-kuma
+Group=uptime-kuma
+WorkingDirectory={{ uptime_kuma_path }}
+ExecStart=/usr/bin/node server/server.js
+Environment=NODE_ENV=production DATA_DIR={{ uptime_kuma_data }}/
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

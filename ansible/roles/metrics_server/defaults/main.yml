@@ -1,0 +1,3 @@
+# The name of the entry under Datacenter -> Metric Server
+metrics_server_id: influxdb
+metrics_server_host: "{{ guests.metrics.ip }}"

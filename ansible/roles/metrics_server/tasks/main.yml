@@ -1,0 +1,36 @@
+- name: Read metric servers
+  ansible.builtin.command: pvesh get /cluster/metrics/server --output-format json
+  register: metrics_server_list
+  changed_when: false
+  check_mode: false
+
+- name: Create the InfluxDB metric server
+  ansible.builtin.command:
+    argv:
+      - pvesh
+      - create
+      - /cluster/metrics/server/{{ metrics_server_id }}
+      - --type=influxdb
+      - --server={{ metrics_server_host }}
+      - --port=8086
+      - --influxdbproto=http
+      - --organization={{ influxdb_org }}
+      - --bucket={{ influxdb_bucket }}
+      - --token={{ influxdb_token }}
+  no_log: true
+  when: metrics_server_id not in metrics_server_list.stdout | from_json | map(attribute='id')
+
+# The token isn't compared; to change it, run `pvesh set /cluster/metrics/server/influxdb --token=...` on the host
+- name: Update the InfluxDB metric server
+  ansible.builtin.command:
+    argv:
+      - pvesh
+      - set
+      - /cluster/metrics/server/{{ metrics_server_id }}
+      - --server={{ metrics_server_host }}
+      - --port=8086
+  vars:
+    metrics_server_current: "{{ metrics_server_list.stdout | from_json | selectattr('id', '==', metrics_server_id) | first }}"
+  when:
+    - metrics_server_id in metrics_server_list.stdout | from_json | map(attribute='id')
+    - metrics_server_current.server != metrics_server_host or metrics_server_current.port | int != 8086
