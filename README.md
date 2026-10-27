@@ -30,6 +30,8 @@ Note: the Pi-hole role overwrites the whole local DNS list, so records added in 
 
 The Proxmox host runs Tailscale as a subnet router advertising `192.168.0.0/24` to the tailnet. Tofu mints the auth key and approves the route; Ansible installs Tailscale and joins the host. Nothing inside the containers runs Tailscale.
 
+The tailnet policy (ACLs, tag owners, SSH rules) lives in [`stacks/tailnet/policy.hujson.tftpl`](stacks/tailnet/policy.hujson.tftpl). Edit it there, not in the admin console: the next `tofu apply` overwrites console changes.
+
 Tofu also sets a split-DNS rule on the tailnet that sends `home.arpa` lookups to Pi-hole over that route, so the names work remotely too.
 
 ## Layout
@@ -53,7 +55,7 @@ Guest IDs and IPs live only in `guests` in [`ansible/group_vars/all.yml`](ansibl
 - Optional: [pre-commit](https://pre-commit.com) (`pre-commit install`) to run `tofu fmt`, `tofu validate` and `ansible-lint` on commit
 - An SSH key at `~/.ssh/id_ed25519` that can log in as root on the Proxmox host
 - A Proxmox API token
-- A Tailscale OAuth client with scopes `auth_keys` (tag `tag:homelab`), `devices:core:read`, `devices:routes` and `dns`. Scopes can't be edited later, so adding one means creating a new client and swapping it into `.env`
+- A Tailscale OAuth client with scopes `auth_keys` (tag `tag:homelab`), `devices:core:read`, `devices:routes`, `dns` and `policy_file`
 
 Secrets live in a gitignored `.env` at the repo root (loaded by direnv via `.envrc`):
 
