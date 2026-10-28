@@ -1,0 +1,10 @@
+// Managed by Ansible (auto_updates role)
+// #clear drops the package defaults so only the origins below apply
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+{% for origin in auto_updates_origins %}
+        "{{ origin }}";
+{% endfor %}
+};
+
+Unattended-Upgrade::Automatic-Reboot "false";

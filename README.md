@@ -46,7 +46,7 @@ ansible/
   site.yml          runs everything
   playbooks/        one per host/service
   roles/            caddy, gitea, jellyfin, media_share, gpu_passthrough, pihole_dns, subnet_router,
-                    uptime_kuma, influxdb, grafana, metrics_server
+                    uptime_kuma, influxdb, grafana, metrics_server, auto_updates
   group_vars/       shared vars (guest IDs/IPs, domain, proxied services)
 ```
 

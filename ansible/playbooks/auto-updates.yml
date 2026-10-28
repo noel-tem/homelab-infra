@@ -1,0 +1,4 @@
+- name: Configure automatic security updates
+  hosts: lxc
+  roles:
+    - auto_updates

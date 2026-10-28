@@ -13,6 +13,7 @@
       register: python_install
       changed_when: "'Setting up python3' in python_install.stdout"
 
+- ansible.builtin.import_playbook: playbooks/auto-updates.yml
 - ansible.builtin.import_playbook: playbooks/caddy.yml
 - ansible.builtin.import_playbook: playbooks/gitea.yml
 - ansible.builtin.import_playbook: playbooks/jellyfin.yml
