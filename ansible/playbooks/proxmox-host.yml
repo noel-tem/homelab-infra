@@ -2,3 +2,6 @@
   hosts: proxmox
   roles:
     - subnet_router
+    # Before stacks/homelab is applied, since PBS's datastore volume goes on it
+    - role: hdd_storage
+      when: inventory_hostname == hdd_storage_node

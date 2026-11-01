@@ -19,5 +19,6 @@
 - ansible.builtin.import_playbook: playbooks/jellyfin.yml
 - ansible.builtin.import_playbook: playbooks/uptimekuma.yml
 - ansible.builtin.import_playbook: playbooks/metrics.yml
+- ansible.builtin.import_playbook: playbooks/pbs.yml
 # After Caddy, so names don't point at it until it's serving them
 - ansible.builtin.import_playbook: playbooks/pihole.yml

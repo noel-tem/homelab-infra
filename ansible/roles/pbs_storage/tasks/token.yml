@@ -1,0 +1,35 @@
+# Runs on PBS. The token's secret is only shown once, so a fresh token is made whenever the storage needs adding
+- name: Delete any old API token
+  ansible.builtin.command:
+    argv: [proxmox-backup-manager, user, delete-token, "{{ pbs_cluster_user }}", "{{ pbs_storage_token_name }}"]
+  register: pbs_storage_delete_token
+  changed_when: pbs_storage_delete_token.rc == 0
+  failed_when: false
+
+- name: Create the API token
+  ansible.builtin.command:
+    argv: [proxmox-backup-manager, user, generate-token, "{{ pbs_cluster_user }}", "{{ pbs_storage_token_name }}"]
+  register: pbs_storage_token_output
+  no_log: true
+
+# It has no --output-format; it prints "Result: " and then {"tokenid": ..., "value": ...}
+- name: Parse the API token
+  ansible.builtin.set_fact:
+    pbs_storage_token: "{{ pbs_storage_token_output.stdout | regex_replace('^Result:\\s*', '') | from_json }}"
+  no_log: true
+
+- name: Give the token access to the datastore
+  ansible.builtin.command:
+    argv:
+      - proxmox-backup-manager
+      - acl
+      - update
+      - /datastore/{{ pbs_datastore }}
+      - "{{ pbs_cluster_role }}"
+      - --auth-id={{ pbs_cluster_user }}!{{ pbs_storage_token_name }}
+
+# PBS's certificate is self-signed, so Proxmox pins it by fingerprint
+- name: Read PBS's certificate fingerprint
+  ansible.builtin.command: proxmox-backup-manager cert info
+  register: pbs_storage_cert
+  changed_when: false

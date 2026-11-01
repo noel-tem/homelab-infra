@@ -1,0 +1,10 @@
+- name: Read Proxmox storage
+  ansible.builtin.command: pvesh get /storage --output-format json
+  register: pbs_storage_list
+  changed_when: false
+  check_mode: false
+
+# Read by the token and connect steps; a dry run never connects, since those need a real token
+- name: Note whether the cluster needs connecting
+  ansible.builtin.set_fact:
+    pbs_storage_missing: "{{ pbs_storage_id not in pbs_storage_list.stdout | from_json | map(attribute='storage') and not ansible_check_mode }}"

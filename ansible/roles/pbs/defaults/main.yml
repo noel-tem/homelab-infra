@@ -1,0 +1,8 @@
+# A directory under the volume's mount point, since PBS won't create a datastore in a non-empty dir (lost+found)
+pbs_datastore_path: /mnt/datastore/{{ pbs_datastore }}
+# Garbage collection frees chunks no backup uses any more; pruning happens on the Proxmox side (pbs_storage)
+pbs_gc_schedule: sat 03:00
+# Log in to the web UI as admin@pbs (realm "Proxmox Backup authentication server")
+pbs_admin_user: admin@pbs
+# Only read on the first run, when the admin user is created; never needs to be in the repo
+pbs_admin_password: "{{ lookup('ansible.builtin.env', 'PBS_ADMIN_PASSWORD') }}"

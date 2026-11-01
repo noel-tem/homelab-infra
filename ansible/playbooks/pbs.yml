@@ -1,0 +1,29 @@
+- name: Configure Proxmox Backup Server
+  hosts: pbs
+  roles:
+    - pbs
+
+# Storage and backup jobs are cluster-wide, so one node handles them
+# Separate plays rather than delegate_to, since the containers' connection vars are keyed on inventory_hostname
+- name: Check whether the cluster is connected to PBS
+  hosts: proxmox[0]
+  tasks:
+    - name: Read cluster storage
+      ansible.builtin.include_role:
+        name: pbs_storage
+        tasks_from: check
+
+- name: Make an API token for the cluster
+  hosts: pbs
+  tasks:
+    - name: Create the token
+      ansible.builtin.include_role:
+        name: pbs_storage
+        tasks_from: token
+      when: hostvars[groups.proxmox[0]].pbs_storage_missing | default(false)
+
+# After PBS is set up, so the datastore and user exist when the cluster connects
+- name: Back up the cluster to PBS
+  hosts: proxmox[0]
+  roles:
+    - pbs_storage

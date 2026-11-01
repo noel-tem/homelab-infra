@@ -1,0 +1,39 @@
+# Runs on a Proxmox node, after check.yml there and token.yml on PBS
+- name: Add PBS as storage
+  ansible.builtin.command:
+    argv:
+      - pvesm
+      - add
+      - pbs
+      - "{{ pbs_storage_id }}"
+      - --server={{ guests.pbs.ip }}
+      - --datastore={{ pbs_datastore }}
+      - --username={{ pbs.pbs_storage_token.tokenid }}
+      - --password={{ pbs.pbs_storage_token.value }}
+      - --fingerprint={{ pbs.pbs_storage_cert.stdout | regex_search('Fingerprint \(sha256\):\s*(\S+)', '\1') | first }}
+      - --content=backup
+      - --prune-backups={{ pbs_storage_retention }}
+  vars:
+    pbs: "{{ hostvars['pbs'] }}"
+  when: pbs_storage_missing
+  no_log: true
+
+- name: Read backup jobs
+  ansible.builtin.command: pvesh get /cluster/backup --output-format json
+  register: pbs_storage_jobs
+  changed_when: false
+  check_mode: false
+
+# Every guest, including ones added later; volumes marked backup = false (Jellyfin's media) are skipped
+- name: Create the nightly backup job
+  ansible.builtin.command:
+    argv:
+      - pvesh
+      - create
+      - /cluster/backup
+      - --id={{ pbs_storage_job_id }}
+      - --schedule={{ pbs_storage_job_schedule }}
+      - --storage={{ pbs_storage_id }}
+      - --all=1
+      - --mode=snapshot
+  when: pbs_storage_job_id not in pbs_storage_jobs.stdout | from_json | map(attribute='id')

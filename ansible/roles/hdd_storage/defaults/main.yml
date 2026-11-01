@@ -1,0 +1,6 @@
+# The M75s's 2 TB HDD; by-id so a renumbered disk can't be wiped by mistake
+hdd_storage_node: live-laugh-tomcruise
+hdd_storage_disk: /dev/disk/by-id/ata-ST2000DM001-1ER164_Z4Z0BAQY
+hdd_storage_vg: hdd
+# The Proxmox storage name; stacks/homelab/pbs.tf puts PBS's datastore volume on it
+hdd_storage_id: hdd-lvm

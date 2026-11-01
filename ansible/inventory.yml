@@ -26,3 +26,4 @@ all:
         jellyfin:
         uptimekuma:
         metrics:
+        pbs:

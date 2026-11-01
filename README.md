@@ -17,6 +17,7 @@ Infrastructure for my home Proxmox cluster: `live-laugh-homelab` (192.168.0.50) 
 | Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | iGPU passthrough, 100G media volume shared over SMB at `\\192.168.0.23\media` |
 | Uptime Kuma | 108 | http://192.168.0.24:3001 | http://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
 | Metrics | 109 | http://192.168.0.25:3000 | http://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
+| Proxmox Backup Server | 110 | https://192.168.0.26:8007 | http://pbs.home.arpa | On `live-laugh-tomcruise`; 200G datastore on its HDD. Log in as `admin@pbs` |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -46,7 +47,7 @@ ansible/
   site.yml          runs everything
   playbooks/        one per host/service
   roles/            caddy, gitea, jellyfin, media_share, gpu_passthrough, pihole_dns, subnet_router,
-                    uptime_kuma, influxdb, grafana, metrics_server, auto_updates
+                    uptime_kuma, influxdb, grafana, metrics_server, auto_updates, hdd_storage, pbs, pbs_storage
   group_vars/       shared vars (guest IDs/IPs, domain, proxied services)
 ```
 
@@ -74,6 +75,7 @@ export AWS_ACCESS_KEY_ID=...                # R2 API token (Object Read & Write 
 export AWS_SECRET_ACCESS_KEY=...
 export INFLUXDB_TOKEN=...                   # e.g. openssl rand -hex 32; Grafana and Proxmox use it on every run
 export INFLUXDB_PASSWORD=...                # InfluxDB admin; only read when InfluxDB is first set up
+export PBS_ADMIN_PASSWORD=...               # admin@pbs on PBS; only read when that user is created
 ```
 
 ## Usage
@@ -122,6 +124,14 @@ After that, change it with `smbpasswd media` inside the container. The share is 
 `playbooks/metrics.yml` installs InfluxDB and Grafana, then points Proxmox's metric server (Datacenter → Metric Server) at InfluxDB. Proxmox pushes host and guest stats into the `proxmox` bucket, which keeps 30 days. Grafana already has InfluxDB as its data source. For dashboards, import [Proxmox [Flux]](https://grafana.com/grafana/dashboards/15356) (ID `15356`) under Dashboards → New → Import.
 
 Uptime Kuma's monitors and notifications are set up in its web UI. They aren't in this repo.
+
+### Backups
+
+`playbooks/pbs.yml` installs Proxmox Backup Server and connects the cluster to it as storage `pbs`. A nightly job (`nightly`, 02:00) backs up every guest in snapshot mode, keeping 7 daily, 4 weekly and 3 monthly backups. PBS verifies each new backup and runs garbage collection on Saturdays. Volumes marked `backup = false`, like Jellyfin's media and PBS's own datastore, are skipped.
+
+The datastore lives on the M75s's HDD, which `hdd_storage` (in `playbooks/proxmox-host.yml`) turns into LVM storage `hdd-lvm`. That role wipes the disk the first time it runs, and never again once the `hdd` volume group exists. On a fresh build, run `proxmox-host.yml` before `tofu apply`, since the PBS container's volume needs `hdd-lvm`.
+
+The backups are on the same premises as the guests, so they don't cover losing both machines.
 
 ## Gotchas
 

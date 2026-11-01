@@ -1,4 +1,4 @@
-# Debian security updates only; vendor repos (Jellyfin, Grafana, InfluxDB, Caddy) stay manual
+# Debian security updates only; vendor repos (Jellyfin, Grafana, InfluxDB, Caddy, PBS) stay manual
 auto_updates_origins:
   - origin=Debian,codename=${distro_codename}-security,label=Debian-Security
   - origin=Debian,codename=${distro_codename},label=Debian-Security

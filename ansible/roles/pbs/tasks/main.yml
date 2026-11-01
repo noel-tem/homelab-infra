@@ -1,0 +1,102 @@
+- name: Add Proxmox Backup Server apt repository
+  ansible.builtin.deb822_repository:
+    name: pbs-no-subscription
+    types: deb
+    uris: http://download.proxmox.com/debian/pbs
+    suites: trixie
+    components: pbs-no-subscription
+    signed_by: https://enterprise.proxmox.com/debian/proxmox-archive-keyring-trixie.gpg
+  register: pbs_repo
+
+# The package ships this repo, which needs a subscription; written first so apt keeps this disabled copy (force-confold)
+- name: Disable the enterprise repository
+  ansible.builtin.copy:
+    content: |
+      Types: deb
+      URIs: https://enterprise.proxmox.com/debian/pbs
+      Suites: trixie
+      Components: pbs-enterprise
+      Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+      Enabled: false
+    dest: /etc/apt/sources.list.d/pbs-enterprise.sources
+    mode: "0644"
+
+- name: Install Proxmox Backup Server
+  ansible.builtin.apt:
+    name: proxmox-backup-server
+    update_cache: true
+    # A fresh repo isn't in the cache yet, even if the cache is under an hour old
+    cache_valid_time: "{{ 0 if pbs_repo is changed else 3600 }}"
+
+- name: Enable and start PBS
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: [proxmox-backup, proxmox-backup-proxy]
+
+- name: Read datastores
+  ansible.builtin.command: proxmox-backup-manager datastore list --output-format json
+  register: pbs_datastores
+  changed_when: false
+  check_mode: false
+  # PBS isn't installed yet on a first dry run
+  failed_when: pbs_datastores.rc != 0 and not ansible_check_mode
+
+# Newly written backups are verified right away, so a bad chunk shows up the morning after
+- name: Create the datastore
+  ansible.builtin.command:
+    argv:
+      - proxmox-backup-manager
+      - datastore
+      - create
+      - "{{ pbs_datastore }}"
+      - "{{ pbs_datastore_path }}"
+      - --gc-schedule={{ pbs_gc_schedule }}
+      - --verify-new=true
+  when: pbs_datastore not in pbs_datastores.stdout | default('[]', true) | from_json | map(attribute='name')
+
+- name: Read users
+  ansible.builtin.command: proxmox-backup-manager user list --output-format json
+  register: pbs_users
+  changed_when: false
+  check_mode: false
+  failed_when: pbs_users.rc != 0 and not ansible_check_mode
+
+- name: Create the admin user
+  when: pbs_admin_user not in pbs_users.stdout | default('[]', true) | from_json | map(attribute='userid')
+  block:
+    - name: Require the admin password
+      ansible.builtin.assert:
+        that: pbs_admin_password | length > 0
+        fail_msg: Set PBS_ADMIN_PASSWORD to create {{ pbs_admin_user }}
+
+    - name: Create {{ pbs_admin_user }}
+      ansible.builtin.command:
+        argv: [proxmox-backup-manager, user, create, "{{ pbs_admin_user }}", "--password={{ pbs_admin_password }}"]
+      no_log: true
+
+# No password: it only logs in through its API token
+- name: Create {{ pbs_cluster_user }}
+  ansible.builtin.command:
+    argv: [proxmox-backup-manager, user, create, "{{ pbs_cluster_user }}"]
+  when: pbs_cluster_user not in pbs_users.stdout | default('[]', true) | from_json | map(attribute='userid')
+
+- name: Read permissions
+  ansible.builtin.command: proxmox-backup-manager acl list --output-format json
+  register: pbs_acls
+  changed_when: false
+  check_mode: false
+  failed_when: pbs_acls.rc != 0 and not ansible_check_mode
+
+# A token gets at most its user's permissions, so the user needs the role too (pbs_storage grants the token)
+- name: Grant permissions
+  ansible.builtin.command:
+    argv: [proxmox-backup-manager, acl, update, "{{ item.path }}", "{{ item.role }}", "--auth-id={{ item.auth_id }}"]
+  loop:
+    - { path: /, role: Admin, auth_id: "{{ pbs_admin_user }}" }
+    - { path: "/datastore/{{ pbs_datastore }}", role: "{{ pbs_cluster_role }}", auth_id: "{{ pbs_cluster_user }}" }
+  when: >-
+    pbs_acls.stdout | default('[]', true) | from_json
+    | selectattr('path', '==', item.path) | selectattr('ugid', '==', item.auth_id) | selectattr('roleid', '==', item.role)
+    | list | length == 0

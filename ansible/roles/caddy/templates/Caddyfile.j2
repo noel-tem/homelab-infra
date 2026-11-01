@@ -4,6 +4,15 @@
 
 {% endif %}
 http://{{ name }}.{{ caddy_domain }} {
+{% if upstream is match('https://') %}
+	# The upstream only serves HTTPS, with a self-signed certificate
+	reverse_proxy {{ upstream }} {
+		transport http {
+			tls_insecure_skip_verify
+		}
+	}
+{% else %}
 	reverse_proxy {{ upstream }}
+{% endif %}
 }
 {% endfor %}

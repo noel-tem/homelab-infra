@@ -16,6 +16,8 @@ guests:
   jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-homelab }
   uptimekuma: { vmid: 108, ip: 192.168.0.24, node: live-laugh-homelab }
   metrics: { vmid: 109, ip: 192.168.0.25, node: live-laugh-homelab }
+  # Its datastore is on the HDD, so it has to stay on that node (see hdd_storage)
+  pbs: { vmid: 110, ip: 192.168.0.26, node: live-laugh-tomcruise }
 caddy_ip: "{{ guests.caddy.ip }}"
 # Each one gets http://<name>.<dns_domain> on Caddy and a Pi-hole record pointing at Caddy
 proxied_services:
@@ -25,9 +27,16 @@ proxied_services:
   jellyfin: "{{ guests.jellyfin.ip }}:8096"
   uptime: "{{ guests.uptimekuma.ip }}:3001"
   grafana: "{{ guests.metrics.ip }}:3000"
+  # PBS only serves HTTPS
+  pbs: "https://{{ guests.pbs.ip }}:8007"
 # InfluxDB on the metrics guest; Proxmox writes to it and Grafana reads from it
 influxdb_url: http://{{ guests.metrics.ip }}:8086
 influxdb_org: homelab
 influxdb_bucket: proxmox
+# PBS's datastore, and the user whose API token the cluster backs up as (roles pbs and pbs_storage)
+pbs_datastore: homelab
+pbs_cluster_user: pve@pbs
+# Backs up and prunes its own backups, nothing else
+pbs_cluster_role: DatastorePowerUser
 # The operator token InfluxDB is set up with; lives in .env so it never needs to be in the repo
 influxdb_token: "{{ lookup('ansible.builtin.env', 'INFLUXDB_TOKEN') }}"

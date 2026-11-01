@@ -1,0 +1,7 @@
+# The storage name under Datacenter -> Storage
+pbs_storage_id: pbs
+pbs_storage_token_name: cluster
+# Applies to every job that backs up to this storage
+pbs_storage_retention: keep-daily=7,keep-weekly=4,keep-monthly=3
+pbs_storage_job_id: nightly
+pbs_storage_job_schedule: "02:00"
