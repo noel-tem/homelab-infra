@@ -20,7 +20,7 @@ module "jellyfin" {
   cores           = 2
   memory          = 2048
   disk_size       = 16
-  # Separate volume for the library, kept out of the root disk and out of backups
-  mount_points = [{ volume = "local-lvm", size = "40G", path = "/mnt/media" }]
+  # Separate volume for the library on the HDD (ansible/roles/hdd_storage), kept out of the root disk and out of backups
+  mount_points = [{ volume = "hdd-lvm", size = "1000G", path = "/mnt/media" }]
   tags         = ["media"]
 }

@@ -13,8 +13,8 @@ Infrastructure for my home Proxmox cluster: `live-laugh-homelab` (192.168.0.50) 
 | Home Assistant OS | 102 | http://192.168.0.83:8123 | http://homeassistant.home.arpa | VM from community-scripts, imported into Tofu |
 | Mosquitto | 104 | `mqtt://192.168.0.20:1883` | — | MQTT broker, no Ansible config yet |
 | Caddy | 105 | http://192.168.0.21 | — | Reverse proxy for every `*.home.arpa` name |
-| Gitea | 106 | http://192.168.0.22:3000 | http://gitea.home.arpa | First visit runs the web installer |
-| Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | iGPU passthrough, 100G media volume shared over SMB at `\\192.168.0.23\media` |
+| Gitea | 106 | http://192.168.0.22:3000 | http://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
+| Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | On `live-laugh-tomcruise`; iGPU passthrough, 1T media volume on its HDD, shared over SMB at `\\192.168.0.23\media` |
 | Uptime Kuma | 108 | http://192.168.0.24:3001 | http://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
 | Metrics | 109 | http://192.168.0.25:3000 | http://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
 | Proxmox Backup Server | 110 | https://192.168.0.26:8007 | http://pbs.home.arpa | On `live-laugh-tomcruise`; 200G datastore on its HDD. Log in as `admin@pbs` |
@@ -129,7 +129,7 @@ Uptime Kuma's monitors and notifications are set up in its web UI. They aren't i
 
 `playbooks/pbs.yml` installs Proxmox Backup Server and connects the cluster to it as storage `pbs`. A nightly job (`nightly`, 02:00) backs up every guest in snapshot mode, keeping 7 daily, 4 weekly and 3 monthly backups. PBS verifies each new backup and runs garbage collection on Saturdays. Volumes marked `backup = false`, like Jellyfin's media and PBS's own datastore, are skipped.
 
-The datastore lives on the M75s's HDD, which `hdd_storage` (in `playbooks/proxmox-host.yml`) turns into LVM storage `hdd-lvm`. That role wipes the disk the first time it runs, and never again once the `hdd` volume group exists. On a fresh build, run `proxmox-host.yml` before `tofu apply`, since the PBS container's volume needs `hdd-lvm`.
+The datastore lives on the M75s's HDD, which `hdd_storage` (in `playbooks/proxmox-host.yml`) turns into LVM storage `hdd-lvm`. That role wipes the disk the first time it runs, and never again once the `hdd` volume group exists. Jellyfin's media volume is on it too. On a fresh build, run `proxmox-host.yml` before `tofu apply`, since the PBS and Jellyfin containers' volumes need `hdd-lvm`.
 
 The backups are on the same premises as the guests, so they don't cover losing both machines.
 

@@ -11,9 +11,9 @@ guests:
   homeassistant: { vmid: 102, ip: 192.168.0.83, node: live-laugh-homelab }
   mosquitto: { vmid: 104, ip: 192.168.0.20, node: live-laugh-homelab }
   caddy: { vmid: 105, ip: 192.168.0.21, node: live-laugh-homelab }
-  gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-homelab }
-  # Needs a node with an iGPU at /dev/dri/renderD128
-  jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-homelab }
+  gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise }
+  # Needs a node with an iGPU at /dev/dri/renderD128; its media volume is on the HDD, so it has to stay on that node (see hdd_storage)
+  jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-tomcruise }
   uptimekuma: { vmid: 108, ip: 192.168.0.24, node: live-laugh-homelab }
   metrics: { vmid: 109, ip: 192.168.0.25, node: live-laugh-homelab }
   # Its datastore is on the HDD, so it has to stay on that node (see hdd_storage)
