@@ -12,8 +12,8 @@ module "gitea" {
   vm_id            = local.guests.gitea.vmid
   started          = local.gitea_running
   start_on_boot    = local.gitea_running
-  node_name        = local.node
-  template_file_id = local.debian_template
+  node_name        = local.guests.gitea.node
+  template_file_id = local.debian_template[local.guests.gitea.node]
   ipv4_address     = "${local.guests.gitea.ip}/24"
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = [local.pihole_ip]

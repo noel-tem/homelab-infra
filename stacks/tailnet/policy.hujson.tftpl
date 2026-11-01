@@ -1,17 +1,20 @@
 // Tailnet policy. Rendered by acl.tf; addresses come from ansible/group_vars/all.yml
 {
 	"hosts": {
-		"lan":     "${lan}",
-		"proxmox": "${proxmox}",
-		"pihole":  "${pihole}",
-		"caddy":   "${caddy}",
+		"lan":    "${lan}",
+		"pihole": "${pihole}",
+		"caddy":  "${caddy}",
+		// One per Proxmox node, named after it
+%{ for node, ip in nodes ~}
+		"${node}": "${ip}",
+%{ endfor ~}
 	},
 
 	"tagOwners": {
 		"tag:homelab": ["autogroup:admin"],
 	},
 
-	// Nothing grants tag:homelab as a source, so the Proxmox host can't open connections to your devices
+	// Nothing grants tag:homelab as a source, so the Proxmox nodes can't open connections to your devices
 	"grants": [
 		// Admins reach everything, including the whole LAN through the subnet router
 		{"src": ["autogroup:admin"], "dst": ["*"], "ip": ["*"]},
@@ -37,7 +40,7 @@
 	"tests": [
 		{
 			"src":  "tag:homelab",
-			"deny": ["proxmox:8006", "pihole:53", "caddy:80"],
+			"deny": [%{ for node, ip in nodes }"${node}:8006", %{ endfor }"pihole:53", "caddy:80"],
 		},
 	],
 }

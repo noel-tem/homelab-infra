@@ -10,8 +10,8 @@ module "pihole" {
   vm_id            = local.guests.pihole.vmid
   started          = local.pihole_running
   start_on_boot    = local.pihole_running
-  node_name        = local.node
-  template_file_id = local.debian_template
+  node_name        = local.guests.pihole.node
+  template_file_id = local.debian_template[local.guests.pihole.node]
   ipv4_address     = "${local.guests.pihole.ip}/24"
   ipv6_address     = "dhcp"
   disk_size        = 8

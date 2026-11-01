@@ -9,4 +9,6 @@
 - name: Give Jellyfin the iGPU
   hosts: proxmox
   roles:
-    - gpu_passthrough
+    # pct only sees containers on its own node
+    - role: gpu_passthrough
+      when: inventory_hostname == guests.jellyfin.node

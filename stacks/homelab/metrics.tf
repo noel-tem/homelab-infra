@@ -12,8 +12,8 @@ module "metrics" {
   vm_id            = local.guests.metrics.vmid
   started          = local.metrics_running
   start_on_boot    = local.metrics_running
-  node_name        = local.node
-  template_file_id = local.debian_template
+  node_name        = local.guests.metrics.node
+  template_file_id = local.debian_template[local.guests.metrics.node]
   ipv4_address     = "${local.guests.metrics.ip}/24"
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = [local.pihole_ip]

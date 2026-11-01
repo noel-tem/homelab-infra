@@ -12,8 +12,8 @@ module "caddy" {
   vm_id            = local.guests.caddy.vmid
   started          = local.caddy_running
   start_on_boot    = local.caddy_running
-  node_name        = local.node
-  template_file_id = local.debian_template
+  node_name        = local.guests.caddy.node
+  template_file_id = local.debian_template[local.guests.caddy.node]
   ipv4_address     = "${local.guests.caddy.ip}/24"
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = [local.pihole_ip]

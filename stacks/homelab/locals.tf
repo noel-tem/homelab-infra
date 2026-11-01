@@ -1,17 +1,21 @@
 # Shared by every guest in this stack
 locals {
-  node            = "live-laugh-homelab"
-  debian_template = proxmox_download_file.debian_13.id
-  ssh_keys        = [trimspace(file(pathexpand("~/.ssh/id_ed25519.pub")))]
+  ssh_keys = [trimspace(file(pathexpand("~/.ssh/id_ed25519.pub")))]
 
-  # Guest IDs/IPs, the LAN and the DNS domain are shared with Ansible
+  # Guest IDs/IPs/nodes, the cluster nodes, the LAN and the DNS domain are shared with Ansible
   shared    = yamldecode(file("${path.module}/../../ansible/group_vars/all.yml"))
+  nodes     = local.shared.nodes
   guests    = local.shared.guests
   pihole_ip = local.guests.pihole.ip
+
+  # Template ID per node, since "local" storage isn't shared
+  debian_template = { for node, t in proxmox_download_file.debian_13 : node => t.id }
 }
 
+# On every node, so a guest can be moved by changing its node in all.yml
 resource "proxmox_download_file" "debian_13" {
-  node_name          = local.node
+  for_each           = local.nodes
+  node_name          = each.key
   content_type       = "vztmpl"
   datastore_id       = "local"
   url                = "http://download.proxmox.com/images/system/debian-13-standard_13.6-1_amd64.tar.zst"
@@ -19,4 +23,9 @@ resource "proxmox_download_file" "debian_13" {
   checksum_algorithm = "sha512"
   # The template is already on the host; adopt it instead of failing
   overwrite_unmanaged = true
+}
+
+moved {
+  from = proxmox_download_file.debian_13
+  to   = proxmox_download_file.debian_13["live-laugh-homelab"]
 }

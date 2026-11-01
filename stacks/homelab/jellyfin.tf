@@ -11,8 +11,8 @@ module "jellyfin" {
   vm_id            = local.guests.jellyfin.vmid
   started          = local.jellyfin_running
   start_on_boot    = local.jellyfin_running
-  node_name        = local.node
-  template_file_id = local.debian_template
+  node_name        = local.guests.jellyfin.node
+  template_file_id = local.debian_template[local.guests.jellyfin.node]
   ipv4_address     = "${local.guests.jellyfin.ip}/24"
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = [local.pihole_ip]

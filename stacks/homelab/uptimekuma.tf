@@ -12,8 +12,8 @@ module "uptimekuma" {
   vm_id            = local.guests.uptimekuma.vmid
   started          = local.uptimekuma_running
   start_on_boot    = local.uptimekuma_running
-  node_name        = local.node
-  template_file_id = local.debian_template
+  node_name        = local.guests.uptimekuma.node
+  template_file_id = local.debian_template[local.guests.uptimekuma.node]
   ipv4_address     = "${local.guests.uptimekuma.ip}/24"
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = [local.pihole_ip]

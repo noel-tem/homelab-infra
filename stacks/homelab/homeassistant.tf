@@ -24,7 +24,7 @@ resource "proxmox_virtual_environment_vm" "homeassistant" {
     trunks       = ""
     vlan_id      = 0
   }
-  node_name           = "live-laugh-homelab"
+  node_name           = local.guests.homeassistant.node
   on_boot             = true
   pool_id             = ""
   protection          = false

@@ -1,9 +1,9 @@
 # homelab-infra
 
-Infrastructure for my home Proxmox server (`live-laugh-homelab`, 192.168.0.50).
+Infrastructure for my home Proxmox cluster: `live-laugh-homelab` (192.168.0.50) and `live-laugh-tomcruise` (192.168.0.51), with a QDevice for quorum.
 
 - **OpenTofu** creates the guests (`stacks/homelab/`) and owns the Tailscale key, route approval and split DNS (`stacks/tailnet/`).
-- **Ansible** (`ansible/`) configures everything inside them, plus the Proxmox host itself.
+- **Ansible** (`ansible/`) configures everything inside them, plus the Proxmox nodes themselves.
 
 ## Services
 
@@ -30,7 +30,7 @@ Note: the Pi-hole role overwrites the whole local DNS list, so records added in 
 
 ### Remote access
 
-The Proxmox host runs Tailscale as a subnet router advertising `192.168.0.0/24` to the tailnet. Tofu mints the auth key and approves the route; Ansible installs Tailscale and joins the host. Nothing inside the containers runs Tailscale.
+Every Proxmox node runs Tailscale as a subnet router advertising `192.168.0.0/24`, so the tailnet fails over if one node is down. Tofu mints an auth key per node and approves each route; Ansible installs Tailscale and joins the nodes. Nothing inside the containers runs Tailscale.
 
 The tailnet policy (ACLs, tag owners, SSH rules) lives in [`stacks/tailnet/policy.hujson.tftpl`](stacks/tailnet/policy.hujson.tftpl). Edit it there, not in the admin console: the next `tofu apply` overwrites console changes.
 
@@ -50,13 +50,13 @@ ansible/
   group_vars/       shared vars (guest IDs/IPs, domain, proxied services)
 ```
 
-Guest IDs and IPs live only in `guests` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml). Tofu reads that same file, so changing an address there updates both.
+Guest IDs, IPs and nodes live only in `guests` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), and the cluster nodes in `nodes` next to it. Tofu reads that same file, so changing an address there updates both.
 
 ## Prerequisites
 
 - OpenTofu and Ansible (`ansible-core` + `paramiko`, e.g. via pipx)
 - Optional: [pre-commit](https://pre-commit.com) (`pre-commit install`) to run `tofu fmt`, `tofu validate` and `ansible-lint` on commit
-- An SSH key at `~/.ssh/id_ed25519` that can log in as root on the Proxmox host
+- An SSH key at `~/.ssh/id_ed25519` that can log in as root on every Proxmox node
 - A Proxmox API token
 - A Tailscale OAuth client with scopes `auth_keys` (tag `tag:homelab`), `devices:core:read`, `devices:routes`, `dns` and `policy_file`
 
@@ -89,7 +89,7 @@ tofu apply
 
 The Tailscale side is the same in `stacks/tailnet`; it only needs the Tailscale and R2 credentials.
 
-On a fresh build the host isn't on the tailnet yet, so it takes two applies: `tofu apply` (mints the auth key), then `ansible-playbook playbooks/proxmox-host.yml` within the hour (joins the host), then `tofu apply` again (approves the route).
+On a fresh build (or a new node) the node isn't on the tailnet yet, so it takes two applies: `tofu apply` (mints the auth key), then `ansible-playbook playbooks/proxmox-host.yml` within the hour (joins the node), then `tofu apply` again (approves the route).
 
 State lives in the R2 bucket at `homelab/terraform.tfstate` and `tailnet/terraform.tfstate`, each encrypted with `TF_VAR_state_passphrase` before upload. Keep the passphrase in a password manager too: without it the state can't be read.
 
@@ -107,7 +107,7 @@ ansible-playbook site.yml
 ansible-playbook playbooks/jellyfin.yml
 ```
 
-Ansible never SSHes into containers. It connects to the Proxmox host as root and uses `pct exec` (the `community.proxmox.proxmox_pct_remote` connection), so containers don't need sshd or keys. `site.yml` bootstraps Python in each container before anything else.
+Ansible never SSHes into containers. It connects as root to the node each container is on and uses `pct exec` (the `community.proxmox.proxmox_pct_remote` connection), so containers don't need sshd or keys. `site.yml` bootstraps Python in each container before anything else.
 
 The first Jellyfin run creates the SMB account and needs a password in the environment:
 
@@ -126,9 +126,9 @@ Uptime Kuma's monitors and notifications are set up in its web UI. They aren't i
 ## Gotchas
 
 - **Containers use Pi-hole for DNS** (`dns_servers = ["192.168.0.10"]`) because the host's `resolv.conf` points at Tailscale's resolver, which containers can't reach.
-- **Rejoining Tailscale**: the auth key is single-use and expires an hour after creation. Mint a fresh one with `tofu -chdir=stacks/tailnet apply -replace=tailscale_tailnet_key.subnet_router`, then rerun Ansible.
+- **Rejoining Tailscale**: the auth key is single-use and expires an hour after creation. Mint a fresh one with `tofu -chdir=stacks/tailnet apply -replace='tailscale_tailnet_key.subnet_router["<node>"]'`, then rerun Ansible.
 - **GPU passthrough is done by Ansible, not Tofu**: device passthrough needs `root@pam`, and Tofu uses an API token. The module ignores `device_passthrough` changes for the same reason.
-- **Changing the LXC template** won't rebuild existing containers; the module ignores template changes. Tofu downloads the template (`proxmox_download_file.debian_13` in `locals.tf`), so bump its URL and checksum to change it.
+- **Changing the LXC template** won't rebuild existing containers; the module ignores template changes. Tofu downloads the template to every node (`proxmox_download_file.debian_13` in `locals.tf`), so bump its URL and checksum to change it.
 - **Tailscale OAuth scope errors** show up as 404s, not 403s.
 - **Home Assistant**'s guest agent reports internal interfaces with changing MACs, so `mac_addresses` is ignored.
 

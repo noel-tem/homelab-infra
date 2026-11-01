@@ -1,20 +1,23 @@
 all:
   children:
+    # Every Proxmox node; names and IPs come from nodes in group_vars/all.yml
     proxmox:
+      vars:
+        ansible_host: "{{ nodes[inventory_hostname].ip }}"
+        ansible_user: root
+        ansible_ssh_private_key_file: ~/.ssh/id_ed25519
       hosts:
         live-laugh-homelab:
-          ansible_host: "{{ proxmox_host }}"
-          ansible_user: root
-          ansible_ssh_private_key_file: ~/.ssh/id_ed25519
-    # Reached through the Proxmox host with `pct exec`, so containers don't need sshd
+        live-laugh-tomcruise:
+    # Reached through the guest's node with `pct exec`, so containers don't need sshd
     lxc:
       vars:
         ansible_connection: community.proxmox.proxmox_pct_remote
-        ansible_host: "{{ proxmox_host }}"
+        ansible_host: "{{ nodes[guests[inventory_hostname].node].ip }}"
         ansible_user: root
         ansible_private_key_file: ~/.ssh/id_ed25519
         ansible_python_interpreter: /usr/bin/python3
-        # IDs come from guests in group_vars/all.yml
+        # IDs and nodes come from guests in group_vars/all.yml
         proxmox_vmid: "{{ guests[inventory_hostname].vmid }}"
       hosts:
         pihole:

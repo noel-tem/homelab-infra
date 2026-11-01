@@ -1,4 +1,4 @@
 subnet_router_hostname: "{{ inventory_hostname }}"
 subnet_router_routes: ["{{ home_subnet }}"]
 # Only read when the host isn't logged in; the key is single-use and expires an hour after Tofu creates it
-subnet_router_auth_key: "{{ lookup('ansible.builtin.pipe', 'tofu -chdir=' ~ role_path ~ '/../../../stacks/tailnet output -raw subnet_router_auth_key') }}"
+subnet_router_auth_key: "{{ (lookup('ansible.builtin.pipe', 'tofu -chdir=' ~ role_path ~ '/../../../stacks/tailnet output -json subnet_router_auth_keys') | from_json)[inventory_hostname] }}"

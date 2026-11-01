@@ -7,5 +7,7 @@
 # After InfluxDB is set up, so the bucket exists when Proxmox starts writing
 - name: Send Proxmox metrics to InfluxDB
   hosts: proxmox
+  # The metric server is cluster-wide, so one node sets it for all of them
+  run_once: true
   roles:
     - metrics_server

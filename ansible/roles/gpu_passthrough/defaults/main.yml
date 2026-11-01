@@ -1,3 +1,3 @@
-# Container to hand the iGPU to; runs on the Proxmox host
+# Container to hand the iGPU to; runs on the container's node
 gpu_passthrough_vmid: "{{ hostvars['jellyfin'].proxmox_vmid }}"
 gpu_passthrough_device: /dev/dri/renderD128
