@@ -3,10 +3,11 @@ locals {
   ssh_keys = [trimspace(file(pathexpand("~/.ssh/id_ed25519.pub")))]
 
   # Guest IDs/IPs/nodes, the cluster nodes, the LAN and the DNS domain are shared with Ansible
-  shared    = yamldecode(file("${path.module}/../../ansible/group_vars/all.yml"))
-  nodes     = local.shared.nodes
-  guests    = local.shared.guests
-  pihole_ip = local.guests.pihole.ip
+  shared = yamldecode(file("${path.module}/../../ansible/group_vars/all.yml"))
+  nodes  = local.shared.nodes
+  guests = local.shared.guests
+  # Both Pi-holes, so a container keeps resolving names when either is down
+  pihole_ips = [local.guests.pihole.ip, local.guests.pihole2.ip]
 
   # Template ID per node, since "local" storage isn't shared
   debian_template = { for node, t in proxmox_download_file.debian_13 : node => t.id }

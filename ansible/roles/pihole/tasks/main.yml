@@ -1,0 +1,94 @@
+- name: Check whether Pi-hole is installed
+  ansible.builtin.stat:
+    path: /usr/bin/pihole-FTL
+  register: pihole_ftl
+
+- name: Install Pi-hole
+  when: not pihole_ftl.stat.exists
+  block:
+    - name: Check the web password is set
+      ansible.builtin.assert:
+        that: pihole_password | length > 0
+        fail_msg: Set PIHOLE_PASSWORD; it's the web UI password for the new Pi-hole
+
+    - name: Create the config directory
+      ansible.builtin.file:
+        path: /etc/pihole
+        state: directory
+        mode: "0755"
+
+    # An existing pihole.toml makes the installer skip its dialogs, which is what lets --unattended work on a fresh install
+    - name: Seed the config
+      ansible.builtin.copy:
+        content: |
+          [dns]
+          upstreams = {{ pihole_upstreams | to_json }}
+          interface = "eth0"
+        dest: /etc/pihole/pihole.toml
+        mode: "0644"
+        force: false
+
+    # Otherwise the installer adds its default list; the first gravity run imports this file into its database
+    - name: Seed the blocklists
+      ansible.builtin.copy:
+        content: "{{ pihole_adlists | join('\n') }}\n"
+        dest: /etc/pihole/adlists.list
+        mode: "0644"
+        force: false
+
+    - name: Download the installer
+      ansible.builtin.get_url:
+        url: "{{ pihole_installer_url }}"
+        dest: /root/pihole-install.sh
+        mode: "0755"
+
+    - name: Run the installer
+      ansible.builtin.command: bash /root/pihole-install.sh --unattended
+      args:
+        creates: /usr/bin/pihole-FTL
+
+    # The installer only sets one when it ran its dialogs
+    - name: Set the web password
+      ansible.builtin.command:
+        argv: [/usr/local/bin/pihole, setpassword, "{{ pihole_password }}"]
+      changed_when: true
+      no_log: true
+
+- name: Read upstream DNS servers
+  ansible.builtin.command: pihole-FTL --config dns.upstreams
+  register: pihole_upstreams_current
+  changed_when: false
+  check_mode: false
+  # Pi-hole isn't installed yet on a first dry run
+  failed_when: pihole_upstreams_current.rc != 0 and not ansible_check_mode
+
+- name: Set upstream DNS servers
+  ansible.builtin.command:
+    argv: [pihole-FTL, --config, dns.upstreams, "{{ pihole_upstreams | to_json }}"]
+  # The output looks like "[ 8.8.8.8, 8.8.4.4 ]", so compare its entries rather than the exact text
+  when: >-
+    pihole_upstreams_current.stdout | default('') | trim | regex_replace('^\\[|\\]$', '') | split(',')
+    | map('trim') | select | list != pihole_upstreams
+
+- name: Read blocklists
+  ansible.builtin.command:
+    argv: [pihole-FTL, sqlite3, /etc/pihole/gravity.db, SELECT address FROM adlist WHERE type = 0]
+  register: pihole_adlists_current
+  changed_when: false
+  check_mode: false
+  failed_when: pihole_adlists_current.rc != 0 and not ansible_check_mode
+
+# Type 0 is blocklists; allowlists are left alone
+- name: Set blocklists
+  ansible.builtin.command:
+    argv:
+      - pihole-FTL
+      - sqlite3
+      - /etc/pihole/gravity.db
+      - >-
+        DELETE FROM adlist WHERE type = 0 AND address NOT IN ({{ pihole_adlists_sql | join(', ') }});
+        INSERT OR IGNORE INTO adlist (address, type) VALUES ({{ pihole_adlists_sql | join(', 0), (') }}, 0);
+  vars:
+    pihole_adlists_sql: "{{ pihole_adlists | map('replace', \"'\", \"''\") | map('regex_replace', '^(.*)$', \"'\\1'\") | list }}"
+  when: pihole_adlists_current.stdout_lines | default([]) | sort != pihole_adlists | sort
+  notify: Update gravity

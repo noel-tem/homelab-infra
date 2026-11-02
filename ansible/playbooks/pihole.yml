@@ -1,4 +1,5 @@
 - name: Configure Pi-hole
-  hosts: pihole
+  hosts: pihole:pihole2
   roles:
+    - pihole
     - pihole_dns

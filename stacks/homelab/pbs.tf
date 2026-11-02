@@ -16,7 +16,7 @@ module "pbs" {
   template_file_id = local.debian_template[local.guests.pbs.node]
   ipv4_address     = "${local.guests.pbs.ip}/24"
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
-  dns_servers     = [local.pihole_ip]
+  dns_servers     = local.pihole_ips
   ssh_public_keys = local.ssh_keys
   cores           = 2
   memory          = 2048

@@ -1,4 +1,5 @@
 collections:
   # Provides the proxmox_pct_remote connection
   - name: community.proxmox
-    version: ">=2.1.0"
+    # Pinned: connection_plugins/pct.py overrides one of its private methods, so check that still works before bumping this
+    version: "==2.1.0"

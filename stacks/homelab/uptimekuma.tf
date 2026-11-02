@@ -16,7 +16,7 @@ module "uptimekuma" {
   template_file_id = local.debian_template[local.guests.uptimekuma.node]
   ipv4_address     = "${local.guests.uptimekuma.ip}/24"
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
-  dns_servers     = [local.pihole_ip]
+  dns_servers     = local.pihole_ips
   ssh_public_keys = local.ssh_keys
   # npm ci needs the headroom during installs
   memory    = 1024

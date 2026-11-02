@@ -1,0 +1,15 @@
+# Where lookups go when Pi-hole doesn't answer them itself
+pihole_upstreams: [8.8.8.8, 8.8.4.4]
+# Every Pi-hole gets exactly these blocklists, so lists added in the web UI get removed
+pihole_adlists:
+  - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/pro.txt
+  - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/hosts/pro.txt
+  - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/hosts/pro-compressed.txt
+  - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt
+  - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/pro.txt
+  - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/pro.txt
+  - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/pro-onlydomains.txt
+  - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/pro.txt
+pihole_installer_url: https://install.pi-hole.net
+# Only read when Pi-hole is first installed; never needs to be in the repo
+pihole_password: "{{ lookup('ansible.builtin.env', 'PIHOLE_PASSWORD') }}"

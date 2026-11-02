@@ -7,10 +7,14 @@ nodes:
 # The one place guest IDs, addresses and nodes live; Tofu reads this file too (stacks/homelab/locals.tf)
 guests:
   pihole: { vmid: 100, ip: 192.168.0.10, node: live-laugh-homelab }
+  # Failover for pihole, on the other node so DNS survives either one going down
+  pihole2: { vmid: 101, ip: 192.168.0.11, node: live-laugh-tomcruise }
   # DHCP; Tofu doesn't set this one, it's only here for proxied_services
   homeassistant: { vmid: 102, ip: 192.168.0.83, node: live-laugh-homelab }
   mosquitto: { vmid: 104, ip: 192.168.0.20, node: live-laugh-homelab }
   caddy: { vmid: 105, ip: 192.168.0.21, node: live-laugh-homelab }
+  # Failover for caddy, on the other node; the two share caddy_vip
+  caddy2: { vmid: 111, ip: 192.168.0.27, node: live-laugh-tomcruise }
   gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise }
   # Needs a node with an iGPU at /dev/dri/renderD128; its media volume is on the HDD, so it has to stay on that node (see hdd_storage)
   jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-tomcruise }
@@ -18,10 +22,12 @@ guests:
   metrics: { vmid: 109, ip: 192.168.0.25, node: live-laugh-homelab }
   # Its datastore is on the HDD, so it has to stay on that node (see hdd_storage)
   pbs: { vmid: 110, ip: 192.168.0.26, node: live-laugh-tomcruise }
-caddy_ip: "{{ guests.caddy.ip }}"
+# Floats between caddy and caddy2 (keepalived), so names keep working with either node down
+caddy_vip: 192.168.0.28
 # Each one gets http://<name>.<dns_domain> on Caddy and a Pi-hole record pointing at Caddy
 proxied_services:
   pihole: "{{ guests.pihole.ip }}:80"
+  pihole2: "{{ guests.pihole2.ip }}:80"
   homeassistant: "{{ guests.homeassistant.ip }}:8123"
   gitea: "{{ guests.gitea.ip }}:3000"
   jellyfin: "{{ guests.jellyfin.ip }}:8096"

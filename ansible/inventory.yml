@@ -9,10 +9,10 @@ all:
       hosts:
         live-laugh-homelab:
         live-laugh-tomcruise:
-    # Reached through the guest's node with `pct exec`, so containers don't need sshd
+    # Reached through the guest's node with lxc-attach (connection_plugins/pct.py), so containers don't need sshd
     lxc:
       vars:
-        ansible_connection: community.proxmox.proxmox_pct_remote
+        ansible_connection: pct
         ansible_host: "{{ nodes[guests[inventory_hostname].node].ip }}"
         ansible_user: root
         ansible_private_key_file: ~/.ssh/id_ed25519
@@ -21,7 +21,9 @@ all:
         proxmox_vmid: "{{ guests[inventory_hostname].vmid }}"
       hosts:
         pihole:
+        pihole2:
         caddy:
+        caddy2:
         gitea:
         jellyfin:
         uptimekuma:

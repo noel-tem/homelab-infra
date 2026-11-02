@@ -1,4 +1,5 @@
 - name: Configure Caddy
-  hosts: caddy
+  hosts: caddy:caddy2
   roles:
     - caddy
+    - keepalived

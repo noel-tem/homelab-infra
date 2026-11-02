@@ -1,0 +1,19 @@
+- name: Install keepalived
+  ansible.builtin.apt:
+    name: keepalived
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Write keepalived.conf
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0644"
+    validate: keepalived --config-test -f %s
+  notify: Reload keepalived
+
+- name: Enable and start keepalived
+  ansible.builtin.systemd_service:
+    name: keepalived
+    enabled: true
+    state: started
