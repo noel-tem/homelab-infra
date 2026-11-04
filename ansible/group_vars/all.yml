@@ -16,11 +16,11 @@ guests:
   # Failover for caddy, on the other node; the two share caddy_vip
   caddy2: { vmid: 111, ip: 192.168.0.27, node: live-laugh-tomcruise }
   gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise }
-  # Needs a node with an iGPU at /dev/dri/renderD128; its media volume is on the HDD, so it has to stay on that node (see hdd_storage)
+  # Needs a node with an iGPU at /dev/dri/renderD128; its media volume is on the HDD, so it has to stay on that node (see disk_storage)
   jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-tomcruise }
   uptimekuma: { vmid: 108, ip: 192.168.0.24, node: live-laugh-homelab }
   metrics: { vmid: 109, ip: 192.168.0.25, node: live-laugh-homelab }
-  # Its datastore is on the HDD, so it has to stay on that node (see hdd_storage)
+  # Its datastore is on the SSD, so it has to stay on that node (see disk_storage)
   pbs: { vmid: 110, ip: 192.168.0.26, node: live-laugh-tomcruise }
 # Floats between caddy and caddy2 (keepalived), so names keep working with either node down
 caddy_vip: 192.168.0.28

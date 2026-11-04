@@ -1,4 +1,4 @@
-# Proxmox Backup Server; the cluster's nightly backups land in its datastore on the M75s's HDD
+# Proxmox Backup Server; the cluster's nightly backups land in its datastore on the M75s's SSD
 # Ansible installs and configures it (ansible/roles/pbs) and connects the cluster (ansible/roles/pbs_storage)
 locals {
   # false shuts the container down (and keeps it down across host reboots); data is kept
@@ -21,7 +21,7 @@ module "pbs" {
   cores           = 2
   memory          = 2048
   disk_size       = 8
-  # hdd-lvm is the HDD, set up by Ansible (ansible/roles/hdd_storage); kept out of backups so PBS doesn't back itself up
-  mount_points = [{ volume = "hdd-lvm", size = "200G", path = "/mnt/datastore" }]
+  # ssd-lvm is the 1 TB SSD, set up by Ansible (ansible/roles/disk_storage), all of it for the datastore; kept out of backups so PBS doesn't back itself up
+  mount_points = [{ volume = "ssd-lvm", size = "930G", path = "/mnt/datastore" }]
   tags         = ["backup"]
 }

@@ -1,6 +1,6 @@
 - name: Read volume groups
   ansible.builtin.command: vgs --noheadings -o vg_name
-  register: hdd_storage_vgs
+  register: disk_storage_vgs
   changed_when: false
   check_mode: false
 
@@ -8,32 +8,38 @@
 - name: Wipe the disk and create the volume group
   ansible.builtin.shell: |
     set -e
-    for part in {{ hdd_storage_disk }}-part*; do
+    for part in {{ item.disk }}-part*; do
       [ -e "$part" ] && wipefs --all "$part"
     done
-    wipefs --all {{ hdd_storage_disk }}
+    wipefs --all {{ item.disk }}
     udevadm settle
-    vgcreate {{ hdd_storage_vg }} {{ hdd_storage_disk }}
+    vgcreate {{ item.vg }} {{ item.disk }}
   args:
     executable: /bin/bash
-  when: hdd_storage_vg not in hdd_storage_vgs.stdout.split()
+  loop: "{{ disk_storage_disks }}"
+  loop_control:
+    label: "{{ item.vg }}"
+  when: item.vg not in disk_storage_vgs.stdout.split()
   changed_when: true
 
 - name: Read Proxmox storage
   ansible.builtin.command: pvesh get /storage --output-format json
-  register: hdd_storage_list
+  register: disk_storage_list
   changed_when: false
   check_mode: false
 
-# Thick LVM: it only holds a few big volumes, so thin provisioning buys nothing
+# Thick LVM: each only holds a few big volumes, so thin provisioning buys nothing
 - name: Add the volume group as Proxmox storage
   ansible.builtin.command:
     argv:
       - pvesm
       - add
       - lvm
-      - "{{ hdd_storage_id }}"
-      - --vgname={{ hdd_storage_vg }}
-      - --nodes={{ hdd_storage_node }}
+      - "{{ item.storage_id }}"
+      - --vgname={{ item.vg }}
+      - --nodes={{ disk_storage_node }}
       - --content=rootdir,images
-  when: hdd_storage_id not in hdd_storage_list.stdout | from_json | map(attribute='storage')
+  loop: "{{ disk_storage_disks }}"
+  loop_control:
+    label: "{{ item.storage_id }}"
+  when: item.storage_id not in disk_storage_list.stdout | from_json | map(attribute='storage')
