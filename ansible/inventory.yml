@@ -29,3 +29,5 @@ all:
         uptimekuma:
         metrics:
         pbs:
+        runner:
+        deployer:

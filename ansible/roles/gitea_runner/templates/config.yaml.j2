@@ -1,0 +1,22 @@
+# Every option: https://gitea.com/gitea/runner/src/branch/main/internal/pkg/config/config.example.yaml
+log:
+  level: info
+runner:
+  file: {{ gitea_runner_home }}/.runner
+  # One job at a time, so jobs never share the host's checkouts or caches mid-run
+  capacity: 1
+  timeout: 1h
+  labels:
+{% for label in gitea_runner_labels %}
+    - "{{ label }}"
+{% endfor %}
+{% if gitea_runner_envs %}
+  envs:
+{% for name, value in gitea_runner_envs.items() %}
+    {{ name }}: "{{ value }}"
+{% endfor %}
+{% endif %}
+cache:
+  enabled: false
+host:
+  workdir_parent: {{ gitea_runner_home }}/work

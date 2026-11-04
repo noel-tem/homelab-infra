@@ -1,0 +1,28 @@
+# Lints and validates every PR. Uses no secrets, so it's fine on unreviewed branches
+name: Check
+on:
+  pull_request:
+
+jobs:
+  check:
+    # The only runner; it has no infra credentials (README: CI)
+    runs-on: claude
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: tofu fmt
+        run: tofu fmt -check -recursive -diff
+
+      - name: tofu validate
+        env:
+          # init evaluates the state encryption block even without a backend; nothing is encrypted with this
+          TF_VAR_state_passphrase: validate-only-not-a-secret
+        run: |
+          for dir in stacks/*/ modules/*/; do
+            echo "== $dir"
+            tofu -chdir="$dir" init -backend=false -input=false >/dev/null
+            tofu -chdir="$dir" validate
+          done
+
+      - name: ansible-lint
+        run: ansible-lint --project-dir ansible

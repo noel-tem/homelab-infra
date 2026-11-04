@@ -1,0 +1,9 @@
+[Unit]
+Description=Check main for something to deploy
+
+[Timer]
+OnActiveSec=1min
+OnUnitInactiveSec={{ deployer_interval }}
+
+[Install]
+WantedBy=timers.target

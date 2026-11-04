@@ -1,0 +1,11 @@
+# Downloads only when the file is missing or its checksum doesn't match
+- name: Download OpenTofu
+  ansible.builtin.get_url:
+    url: "{{ opentofu_url }}"
+    checksum: sha256:{{ opentofu_sha256 }}
+    dest: /var/cache/tofu_{{ opentofu_version }}_amd64.deb
+    mode: "0644"
+
+- name: Install OpenTofu
+  ansible.builtin.apt:
+    deb: /var/cache/tofu_{{ opentofu_version }}_amd64.deb

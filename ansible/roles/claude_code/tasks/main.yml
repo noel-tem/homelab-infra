@@ -1,0 +1,19 @@
+- name: Install npm
+  ansible.builtin.apt:
+    name: npm
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Check installed Claude Code version
+  ansible.builtin.command: npm ls --global --json @anthropic-ai/claude-code
+  register: claude_code_installed
+  changed_when: false
+  # npm ls exits 1 when the package isn't installed
+  failed_when: false
+
+- name: Install Claude Code
+  ansible.builtin.command: npm install --global @anthropic-ai/claude-code@{{ claude_code_version }}
+  when: >-
+    (claude_code_installed.stdout | default('{}', true) | from_json).get('dependencies', {})
+    .get('@anthropic-ai/claude-code', {}).get('version') != claude_code_version
+  changed_when: true

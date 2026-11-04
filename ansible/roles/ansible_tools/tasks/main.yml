@@ -1,0 +1,19 @@
+# A venv rather than Debian's packages, so the versions match the workstation's
+- name: Install python3-venv
+  ansible.builtin.apt:
+    name: python3-venv
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Ansible tools
+  ansible.builtin.pip:
+    name: "{{ ansible_tools_packages }}"
+    virtualenv: "{{ ansible_tools_venv }}"
+    virtualenv_command: python3 -m venv
+
+- name: Link Ansible tools onto PATH
+  ansible.builtin.file:
+    src: "{{ ansible_tools_venv }}/bin/{{ item }}"
+    dest: /usr/local/bin/{{ item }}
+    state: link
+  loop: "{{ ansible_tools_commands }}"

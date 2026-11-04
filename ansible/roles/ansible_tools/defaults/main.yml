@@ -1,0 +1,5 @@
+# Python packages for the venv, as pip specs
+ansible_tools_packages: []
+# Executables from the venv to link into /usr/local/bin
+ansible_tools_commands: []
+ansible_tools_venv: /opt/ansible

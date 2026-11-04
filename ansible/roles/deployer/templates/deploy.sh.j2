@@ -1,0 +1,82 @@
+#!/bin/bash
+# Deploys the newest commit on main, once per commit: tofu apply stacks/homelab, then ansible-playbook site.yml
+# stacks/tailnet is left out on purpose: remote access only changes when applied by hand
+# Run by deployer.timer; logs with `journalctl -u deployer`
+# To deploy the current commit again: touch {{ deployer_home }}/retry && systemctl start deployer
+set -euo pipefail
+
+repo={{ deployer_home }}/repo
+last={{ deployer_home }}/last-attempted
+retry={{ deployer_home }}/retry
+api={{ gitea_url }}/api/v1/repos/{{ gitea_repo }}
+
+if [ ! -d "$repo/.git" ]; then
+  git clone --quiet {{ gitea_url }}/{{ gitea_repo }}.git "$repo"
+fi
+cd "$repo"
+git fetch --quiet origin main
+sha=$(git rev-parse FETCH_HEAD)
+
+# First run: treat what's on main now as already deployed, so setting this up doesn't apply anything
+if [ ! -f "$last" ]; then
+  echo "$sha" > "$last"
+  echo "First run: marked $sha as deployed"
+  exit 0
+fi
+if [ -f "$retry" ]; then
+  rm -f "$retry"
+  echo "Retry requested"
+elif [ "$sha" = "$(cat "$last")" ]; then
+  exit 0
+fi
+# Recorded before deploying, so a failing commit isn't retried every few minutes (use the retry file instead)
+echo "$sha" > "$last"
+
+# Shows on the commit in Gitea
+status() {
+  curl -fsS -X POST "$api/statuses/$sha" \
+    -H "Authorization: token $DEPLOYER_GITEA_TOKEN" -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg s "$1" --arg d "$2" '{state: $s, context: "deploy", description: $d}')" >/dev/null \
+    || echo "Couldn't set the commit status" >&2
+}
+reason="Failed; journalctl -u deployer on {{ guests.deployer.ip }}"
+finish() {
+  if [ $? -eq 0 ]; then status success "Deployed"; else status failure "$reason"; fi
+}
+trap finish EXIT
+
+echo "Deploying $sha"
+status pending "Deploying"
+git checkout --quiet --detach "$sha"
+# Keeps .terraform/ so providers aren't downloaded every time
+git clean -ffdxq -e .terraform/
+
+apply_stack() {
+  local dir=stacks/$1 rc=0
+  echo "== tofu: $1"
+  tofu -chdir="$dir" init -input=false -no-color >/dev/null
+  tofu -chdir="$dir" plan -input=false -no-color -detailed-exitcode -out=tfplan || rc=$?
+  case $rc in
+    0) return 0 ;;
+    2) ;;
+    *) return 1 ;;
+  esac
+  # Deleting or replacing anything is left for a person to apply by hand
+  local deletes
+  deletes=$(tofu -chdir="$dir" show -json tfplan |
+    jq -r '(.resource_changes // [])[] | select(.change.actions | index("delete")) | .address')
+  if [ -n "$deletes" ]; then
+    echo "Not applying: the plan deletes or replaces"
+    echo "$deletes"
+    reason="Plan for $1 deletes or replaces resources; apply it by hand"
+    return 1
+  fi
+  tofu -chdir="$dir" apply -input=false -no-color tfplan
+}
+
+apply_stack homelab
+
+echo "== ansible"
+cd ansible
+ansible-galaxy collection install -r requirements.yml >/dev/null
+ANSIBLE_NOCOLOR=1 ansible-playbook site.yml

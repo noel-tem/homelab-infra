@@ -1,0 +1,15 @@
+[Unit]
+Description=Gitea Actions runner
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=gitea-runner
+Group=gitea-runner
+WorkingDirectory={{ gitea_runner_home }}
+ExecStart=/usr/local/bin/gitea-runner daemon --config /etc/gitea-runner/config.yaml
+Environment=HOME={{ gitea_runner_home }}
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

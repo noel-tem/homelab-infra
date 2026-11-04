@@ -1,0 +1,4 @@
+# Same version as the workstation, so plans match
+opentofu_version: 1.13.1
+opentofu_sha256: 1cc324c6193dbc0fad98548eb8f6829a96416493425ca46bc70a291290780b32
+opentofu_url: https://github.com/opentofu/opentofu/releases/download/v{{ opentofu_version }}/tofu_{{ opentofu_version }}_amd64.deb

@@ -1,0 +1,14 @@
+[Unit]
+Description=Deploy the newest commit on main
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deployer
+Group=deployer
+WorkingDirectory={{ deployer_home }}
+EnvironmentFile=/etc/deployer/env
+Environment=HOME={{ deployer_home }}
+ExecStart=/usr/local/bin/deploy
+TimeoutStartSec=1h

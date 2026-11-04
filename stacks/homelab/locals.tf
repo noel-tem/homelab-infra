@@ -1,11 +1,11 @@
 # Shared by every guest in this stack
 locals {
-  ssh_keys = [trimspace(file(pathexpand("~/.ssh/id_ed25519.pub")))]
-
   # Guest IDs/IPs/nodes, the cluster nodes, the LAN and the DNS domain are shared with Ansible
   shared = yamldecode(file("${path.module}/../../ansible/group_vars/all.yml"))
   nodes  = local.shared.nodes
   guests = local.shared.guests
+  # From all.yml rather than ~/.ssh, so a plan on the deployer (which has its own key) matches one run here
+  ssh_keys = [local.shared.ssh_public_key]
   # Both Pi-holes, so a container keeps resolving names when either is down
   pihole_ips = [local.guests.pihole.ip, local.guests.pihole2.ip]
 

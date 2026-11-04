@@ -1,4 +1,6 @@
 dns_domain: home.arpa
+# Root's key in every container; Tofu reads it from here so the deployer (which has its own key) builds identical containers
+ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJm21vYZqBMhgV4jXQ1WQcaCt15tPdzDx8ElhJoigcgs noel@wsl
 home_subnet: 192.168.0.0/24
 # Proxmox cluster nodes, keyed by node name; each is in the Ansible inventory and runs a subnet router
 nodes:
@@ -22,6 +24,12 @@ guests:
   metrics: { vmid: 109, ip: 192.168.0.25, node: live-laugh-homelab }
   # Its datastore is on the SSD, so it has to stay on that node (see disk_storage)
   pbs: { vmid: 110, ip: 192.168.0.26, node: live-laugh-tomcruise }
+  # CI: a Gitea Actions runner for Claude and lint jobs (no infra credentials), and the agent that deploys main (README: CI)
+  runner: { vmid: 112, ip: 192.168.0.29, node: live-laugh-homelab }
+  deployer: { vmid: 113, ip: 192.168.0.30, node: live-laugh-homelab }
+# The repo CI runs for; the runner registers with this Gitea and the deployer pulls from it
+gitea_url: http://{{ guests.gitea.ip }}:3000
+gitea_repo: noeltem/homelab-infra
 # Floats between caddy and caddy2 (keepalived), so names keep working with either node down
 caddy_vip: 192.168.0.28
 # Each one gets http://<name>.<dns_domain> on Caddy and a Pi-hole record pointing at Caddy

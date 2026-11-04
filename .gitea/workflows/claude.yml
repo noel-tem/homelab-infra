@@ -1,0 +1,119 @@
+# "@claude" in a new issue or an issue comment: Claude makes the change on claude/issue-<n> and opens a PR.
+# Comment again on the issue to have it continue on the same branch. Merging the PR deploys it (README: CI).
+name: Claude
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude:
+    # Only when summoned by me, and only on issues (not PRs) for now
+    if: >-
+      github.event.sender.login == 'noeltem' && !github.event.issue.pull_request && (
+        (github.event_name == 'issues' && contains(github.event.issue.body, '@claude')) ||
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+      )
+    runs-on: claude
+    env:
+      ISSUE: ${{ github.event.issue.number }}
+      ISSUE_TITLE: ${{ github.event.issue.title }}
+      ISSUE_BODY: ${{ github.event.issue.body }}
+      COMMENT: ${{ github.event.comment.body }}
+      BRANCH: claude/issue-${{ github.event.issue.number }}
+    # CLAUDE_GITEA_TOKEN is the claude bot's token: Write on this repo only, so it can push branches and open PRs,
+    # but branch protection keeps it off main. Only the steps after Claude get it, never Claude's own environment.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Otherwise the token is left in .git/config, where Claude can read it
+          persist-credentials: false
+
+      - name: Check out the issue's branch
+        run: |
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+          else
+            git checkout -b "$BRANCH"
+          fi
+
+      - name: Run Claude
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          prompt=$(cat <<PROMPT
+          You're working in homelab-infra (OpenTofu creates Proxmox guests, Ansible configures them; see README.md).
+          You're on branch $BRANCH for issue #$ISSUE. Make the change the issue asks for by editing files.
+
+          - There are no credentials here, so you can't run tofu plan or Ansible against real hosts. Check your work with
+            tofu fmt, tofu validate (after tofu init -backend=false) and ansible-lint --project-dir ansible.
+          - Don't commit or push; the workflow does that and opens the PR.
+          - Merging the PR runs tofu apply and the whole site.yml automatically, so keep changes to what the issue asks.
+          - End with a short summary of what you changed and what the reviewer should check; it's posted to the issue.
+
+          Issue title: $ISSUE_TITLE
+
+          Issue body:
+          $ISSUE_BODY
+
+          Latest comment (empty if the issue itself summoned you):
+          $COMMENT
+          PROMPT
+          )
+          claude -p "$prompt" --max-turns 60 \
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(tofu:*),Bash(ansible-lint:*),Bash(git diff:*),Bash(git status:*),Bash(git log:*)" \
+            > "$RUNNER_TEMP/claude.md"
+          cat "$RUNNER_TEMP/claude.md"
+
+      # The branch is mirrored to public GitHub as soon as it's pushed, so nothing token-shaped may be in it
+      - name: Check the changes for tokens
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GITEA_TOKEN: ${{ secrets.CLAUDE_GITEA_TOKEN }}
+        run: |
+          git add -A
+          # Only the added lines; prints nothing that matched, so the check can't leak what it found
+          added=$(git diff --cached --no-color -U0 | grep '^+' || true)
+          if grep -qF -e "$CLAUDE_CODE_OAUTH_TOKEN" -e "$GITEA_TOKEN" <<<"$added" || grep -qE 'sk-ant-[A-Za-z0-9_-]{8,}' <<<"$added"; then
+            echo "The changes contain a token; not committing or pushing anything"
+            exit 1
+          fi
+
+      - name: Commit, push and open a PR
+        env:
+          GITEA_TOKEN: ${{ secrets.CLAUDE_GITEA_TOKEN }}
+        run: |
+          api="${GITHUB_SERVER_URL%/}/api/v1/repos/$GITHUB_REPOSITORY"
+          auth="Authorization: token $GITEA_TOKEN"
+
+          git add -A
+          if git diff --cached --quiet; then
+            result="No files changed."
+          else
+            git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m "$ISSUE_TITLE (#$ISSUE)"
+            # Passed for this one command, so the token is never written into .git/config
+            git -c http.extraHeader="Authorization: Basic $(printf 'claude:%s' "$GITEA_TOKEN" | base64 -w0)" \
+              push -q origin "HEAD:refs/heads/$BRANCH"
+            pr=$(curl -fsS -H "$auth" "$api/pulls?state=open&limit=50" | jq -r --arg b "$BRANCH" '.[] | select(.head.ref == $b) | .html_url')
+            if [ -z "$pr" ]; then
+              pr=$(curl -fsS -X POST -H "$auth" -H 'Content-Type: application/json' "$api/pulls" \
+                -d "$(jq -n --arg h "$BRANCH" --arg t "$ISSUE_TITLE" --arg b "Closes #$ISSUE" '{head: $h, base: "main", title: $t, body: $b}')" |
+                jq -r .html_url)
+            fi
+            result="PR: $pr"
+          fi
+
+          body=$(printf '%s\n\n%s' "$(cat "$RUNNER_TEMP/claude.md")" "$result")
+          curl -fsS -X POST -H "$auth" -H 'Content-Type: application/json' "$api/issues/$ISSUE/comments" \
+            -d "$(jq -n --arg b "$body" '{body: $b}')" >/dev/null
+
+      - name: Report a failure on the issue
+        if: failure()
+        env:
+          GITEA_TOKEN: ${{ secrets.CLAUDE_GITEA_TOKEN }}
+        run: |
+          curl -fsS -X POST -H "Authorization: token $GITEA_TOKEN" -H 'Content-Type: application/json' \
+            "${GITHUB_SERVER_URL%/}/api/v1/repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments" \
+            -d '{"body": "The Claude run failed; see the Actions tab."}' >/dev/null

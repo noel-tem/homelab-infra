@@ -1,0 +1,51 @@
+# CI: the Gitea Actions runner (Claude + lint, no infra credentials) and the deployer (applies main)
+- name: Configure the Gitea Actions runner
+  hosts: runner
+  roles:
+    - opentofu
+    - role: ansible_tools
+      vars:
+        # Same as .pre-commit-config.yaml
+        ansible_tools_packages: [ansible-lint==26.10.1]
+        ansible_tools_commands: [ansible-lint, ansible-galaxy]
+    - role: gitea_runner
+      vars:
+        gitea_runner_labels: ["claude:host"]
+        gitea_runner_envs:
+          TF_PLUGIN_CACHE_DIR: /var/lib/gitea-runner/.cache/tofu-plugins
+    - claude_code
+  tasks:
+    # Tofu won't create its plugin cache itself
+    - name: Create Tofu plugin cache
+      ansible.builtin.file:
+        path: /var/lib/gitea-runner/.cache/tofu-plugins
+        state: directory
+        owner: gitea-runner
+        group: gitea-runner
+        mode: "0755"
+
+- name: Configure the deployer
+  hosts: deployer
+  roles:
+    - opentofu
+    - role: ansible_tools
+      vars:
+        # Same as the workstation's
+        ansible_tools_packages: [ansible-core==2.21.5, paramiko==5.1.0]
+        ansible_tools_commands: [ansible-playbook, ansible-galaxy]
+    - deployer
+
+# root's authorized_keys is /etc/pve/priv/authorized_keys, shared by the whole cluster, so one node does it
+- name: Let the deployer log in to the Proxmox nodes
+  hosts: proxmox
+  run_once: true
+  tasks:
+    # A plain append: pmxcfs doesn't support the chmod/chown that lineinfile's atomic write does
+    - name: Authorize the deployer's key
+      ansible.builtin.shell: |
+        key='{{ hostvars['deployer'].deployer_ssh_key.content | b64decode | trim }}'
+        grep -qxF "$key" /etc/pve/priv/authorized_keys && exit 0
+        echo "$key" >> /etc/pve/priv/authorized_keys
+        echo added
+      register: deployer_key
+      changed_when: "'added' in deployer_key.stdout"

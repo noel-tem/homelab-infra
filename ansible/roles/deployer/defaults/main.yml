@@ -1,0 +1,18 @@
+deployer_home: /var/lib/deployer
+# How long after one check finishes the next one starts
+deployer_interval: 2min
+# Copied from the .env of whoever runs this role (README: Prerequisites)
+# No Tailscale credentials: stacks/tailnet is applied by hand, so the deployer can't change remote access or the ACLs
+deployer_env_vars:
+  - PROXMOX_VE_ENDPOINT
+  - PROXMOX_VE_API_TOKEN
+  - TF_VAR_state_passphrase
+  - TF_VAR_r2_account_id
+  - TF_VAR_r2_bucket
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
+  - INFLUXDB_TOKEN
+  - INFLUXDB_PASSWORD
+  - PBS_ADMIN_PASSWORD
+  - PIHOLE_PASSWORD
+  - DEPLOYER_GITEA_TOKEN

@@ -20,6 +20,8 @@ Infrastructure for my home Proxmox cluster: `live-laugh-homelab` (192.168.0.50) 
 | Uptime Kuma | 108 | http://192.168.0.24:3001 | http://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
 | Metrics | 109 | http://192.168.0.25:3000 | http://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
 | Proxmox Backup Server | 110 | https://192.168.0.26:8007 | http://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
+| Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
+| Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -64,8 +66,10 @@ ansible/
   connection_plugins/  pct: the faster container connection
   playbooks/        one per host/service
   roles/            caddy, keepalived, gitea, jellyfin, media_share, gpu_passthrough, pihole, pihole_dns, subnet_router,
-                    uptime_kuma, influxdb, grafana, metrics_server, auto_updates, disk_storage, pbs, pbs_storage
+                    uptime_kuma, influxdb, grafana, metrics_server, auto_updates, disk_storage, pbs, pbs_storage,
+                    opentofu, ansible_tools, gitea_runner, claude_code, deployer
   group_vars/       shared vars (guest IDs/IPs, domain, proxied services)
+.gitea/workflows/   CI: check (lint + validate on PRs) and claude (@claude on issues)
 ```
 
 Guest IDs, IPs and nodes live only in `guests` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), and the cluster nodes in `nodes` next to it. Tofu reads that same file, so changing an address there updates both.
@@ -94,7 +98,10 @@ export INFLUXDB_TOKEN=...                   # e.g. openssl rand -hex 32; Grafana
 export INFLUXDB_PASSWORD=...                # InfluxDB admin; only read when InfluxDB is first set up
 export PBS_ADMIN_PASSWORD=...               # admin@pbs on PBS; only read when that user is created
 export PIHOLE_PASSWORD=...                  # Pi-hole web UI; only read when Ansible installs a new Pi-hole
+export DEPLOYER_GITEA_TOKEN=...             # the deployer bot's Gitea token (see CI)
 ```
+
+`playbooks/ci.yml` copies all of these except the Tailscale ones to the deployer, and stops if any is unset.
 
 ## Usage
 
@@ -150,6 +157,34 @@ Uptime Kuma's monitors and notifications are set up in its web UI. They aren't i
 The datastore takes up all of the M75s's 1 TB SSD, and Jellyfin's media volume all of its 2 TB HDD. `disk_storage` (in `playbooks/proxmox-host.yml`) turns them into LVM storage `ssd-lvm` and `hdd-lvm`. That role wipes each disk the first time it runs, and never again once its volume group (`ssd`, `hdd`) exists. On a fresh build, run `proxmox-host.yml` before `tofu apply`, since the PBS and Jellyfin containers' volumes need that storage.
 
 The backups are on the same premises as the guests, so they don't cover losing both machines.
+
+### CI
+
+Merging to `main` deploys it, and `@claude` on an issue gets a PR. It's split across two containers so the infra credentials never meet code you haven't approved:
+
+- **runner** is the only Gitea Actions runner (label `claude`). It runs [`check`](.gitea/workflows/check.yml) (fmt, validate, ansible-lint) on every PR and [`claude`](.gitea/workflows/claude.yml) when you write `@claude` in a new issue or an issue comment. Claude edits a `claude/issue-<n>` branch, and the workflow pushes it, opens a PR and replies on the issue. The runner only holds Claude's two secrets, no infra credentials.
+- **deployer** isn't a runner, so no workflow can reach it. Every 2 minutes it fetches `main`, and for each new commit it runs `tofu apply` on `stacks/homelab`, then `ansible-playbook site.yml`. A plan that deletes or replaces anything isn't applied: the deploy fails and you apply it by hand. The result shows as a `deploy` status on the commit. Logs: `journalctl -u deployer` on the deployer. Each commit is tried once; to try it again, run `touch /var/lib/deployer/retry && systemctl start deployer`. On its first run, and whenever `last-attempted` is missing, it marks whatever's on `main` as deployed without applying anything.
+- **`stacks/tailnet` is never auto-applied.** Apply it by hand as before, so a merge can't cut remote access. The deployer doesn't have the Tailscale credentials at all.
+- Before Claude's changes are committed, the workflow checks them for Claude's tokens and anything shaped like an Anthropic key. If it finds one it stops without pushing, because the branch would be on public GitHub seconds later.
+
+Runner labels only route jobs. They don't restrict them, so any branch could send a job to any runner. That's why the infra credentials sit on a host that only ever runs `main`, and `main` only gets code through branch protection.
+
+One-time setup in Gitea, before `playbooks/ci.yml`:
+
+1. Create two bot users, `claude` and `deployer`, and add both to `homelab-infra` as **Write** collaborators.
+2. Tokens: `deployer` gets `write:repository` (for commit statuses), which goes in `.env` as `DEPLOYER_GITEA_TOKEN`. `claude` gets `write:repository` + `write:issue`, which goes in the repo's Actions secrets as `CLAUDE_GITEA_TOKEN`.
+3. Run `claude setup-token` and add the result to the repo's Actions secrets as `CLAUDE_CODE_OAUTH_TOKEN`.
+4. Branch protection on `main`, which is the approval gate:
+   - **Disable push** for everyone, you included, so every change reaches `main` through a PR.
+   - **Merge whitelist: `noeltem` only.** Your merge is the approval. Leave required approvals at 0, since Gitea doesn't let you approve your own PRs, so a 1 would block them.
+   - **Apply to administrators**, so the owner account can't bypass it either.
+   - Optionally require the `Check` status, once it has run once.
+
+   Then check it works: a push to `main` with the claude bot's token should be rejected. For an emergency fix that can't wait for a PR, apply it locally with `tofu`/`ansible-playbook`, then get it onto `main` through a PR. Otherwise the next deploy reverts it.
+
+Then `tofu apply` in `stacks/homelab` (creates both containers) and `ansible-playbook playbooks/ci.yml`. That run registers the runner with Gitea and authorizes the deployer's SSH key on the nodes.
+
+Both of Claude's secrets are readable by any workflow on any branch, which is fine since they're only Claude's. Anything committed still goes to the public GitHub mirror.
 
 ## Gotchas
 
