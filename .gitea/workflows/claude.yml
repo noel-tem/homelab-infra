@@ -43,6 +43,7 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
+          set -o pipefail
           prompt=$(cat <<PROMPT
           You're working in homelab-infra (OpenTofu creates Proxmox guests, Ansible configures them; see README.md).
           You're on branch $BRANCH for issue #$ISSUE. Make the change the issue asks for by editing files.
@@ -64,8 +65,8 @@ jobs:
           )
           claude -p "$prompt" --max-turns 60 \
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(tofu:*),Bash(ansible-lint:*),Bash(git diff:*),Bash(git status:*),Bash(git log:*)" \
-            > "$RUNNER_TEMP/claude.md"
-          cat "$RUNNER_TEMP/claude.md"
+            | tee "$RUNNER_TEMP/claude.md"
+          # Claude prints errors (e.g. a bad token) to stdout, so tee keeps them in the log; pipefail still fails the step
 
       # The branch is mirrored to public GitHub as soon as it's pushed, so nothing token-shaped may be in it
       - name: Check the changes for tokens
