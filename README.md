@@ -101,7 +101,7 @@ export PIHOLE_PASSWORD=...                  # Pi-hole web UI; only read when Ans
 export DEPLOYER_GITEA_TOKEN=...             # the deployer bot's Gitea token (see CI)
 ```
 
-`playbooks/ci.yml` copies all of these except the Tailscale ones to the deployer, and stops if any is unset.
+`playbooks/ci.yml` copies all of these except the Tailscale ones to the deployer. It stops if any is unset, except the three that are only read on first setup (`INFLUXDB_PASSWORD`, `PBS_ADMIN_PASSWORD`, `PIHOLE_PASSWORD`), which it copies only if set.
 
 ## Usage
 

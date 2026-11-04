@@ -12,7 +12,9 @@ deployer_env_vars:
   - AWS_ACCESS_KEY_ID
   - AWS_SECRET_ACCESS_KEY
   - INFLUXDB_TOKEN
+  - DEPLOYER_GITEA_TOKEN
+# Only read when a service is first set up (and its role says so if one is missing), so copied only if set
+deployer_optional_env_vars:
   - INFLUXDB_PASSWORD
   - PBS_ADMIN_PASSWORD
   - PIHOLE_PASSWORD
-  - DEPLOYER_GITEA_TOKEN

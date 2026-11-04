@@ -57,6 +57,10 @@
         runuser -u git -- /usr/local/bin/gitea --config /etc/gitea/app.ini --work-path /var/lib/gitea
         actions generate-runner-token --scope {{ gitea_repo }}
       delegate_to: gitea
+      # The inventory keys connection vars on inventory_hostname, which stays "runner" when delegating
+      vars:
+        ansible_host: "{{ nodes[guests.gitea.node].ip }}"
+        proxmox_vmid: "{{ guests.gitea.vmid }}"
       register: gitea_runner_token
       changed_when: true
       no_log: true

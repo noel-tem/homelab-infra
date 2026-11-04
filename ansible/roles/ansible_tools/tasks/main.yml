@@ -1,7 +1,8 @@
 # A venv rather than Debian's packages, so the versions match the workstation's
-- name: Install python3-venv
+# The pip module needs packaging on the target
+- name: Install python3-venv and packaging
   ansible.builtin.apt:
-    name: python3-venv
+    name: [python3-venv, python3-packaging]
     update_cache: true
     cache_valid_time: 3600
 

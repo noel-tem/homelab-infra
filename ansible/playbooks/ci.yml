@@ -24,6 +24,13 @@
         group: gitea-runner
         mode: "0755"
 
+# The deployer's known_hosts comes from these facts (the nodes' SSH host keys)
+# A play rather than delegate_to, since connection vars are keyed on inventory_hostname (see pbs.yml)
+- name: Gather the Proxmox nodes' facts
+  hosts: proxmox
+  gather_facts: true
+  tasks: []
+
 - name: Configure the deployer
   hosts: deployer
   roles:
