@@ -74,6 +74,13 @@ services:
       - {{ media_path }}:/data
     restart: unless-stopped
 
+  # Gets Prowlarr past Cloudflare on indexers tagged for it; internal only, at http://flaresolverr:8191
+  flaresolverr:
+    image: {{ arr_images.flaresolverr }}
+    environment:
+      TZ: {{ arr_timezone }}
+    restart: unless-stopped
+
   bazarr:
     image: {{ arr_images.bazarr }}
     environment: *linuxserver-env

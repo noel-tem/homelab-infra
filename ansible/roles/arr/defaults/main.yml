@@ -28,3 +28,4 @@ arr_images:
   radarr: lscr.io/linuxserver/radarr:latest
   bazarr: lscr.io/linuxserver/bazarr:latest
   seerr: ghcr.io/seerr-team/seerr:latest
+  flaresolverr: ghcr.io/flaresolverr/flaresolverr:latest

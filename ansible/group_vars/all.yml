@@ -27,7 +27,7 @@ guests:
   # CI: a Gitea Actions runner for Claude and lint jobs (no infra credentials), and the agent that deploys main (README: CI)
   runner: { vmid: 112, ip: 192.168.0.29, node: live-laugh-homelab }
   deployer: { vmid: 113, ip: 192.168.0.30, node: live-laugh-homelab }
-  # Sonarr, Radarr, Prowlarr, Bazarr, Seerr and qBittorrent behind Surfshark (roles/arr); shares jellyfin's media, so it has to be on the same node
+  # Sonarr, Radarr, Prowlarr, FlareSolverr, Bazarr, Seerr and qBittorrent behind Surfshark (roles/arr); shares jellyfin's media, so it has to be on the same node
   arr: { vmid: 114, ip: 192.168.0.31, node: live-laugh-tomcruise }
 # The repo CI runs for; the runner registers with this Gitea and the deployer pulls from it
 gitea_url: http://{{ guests.gitea.ip }}:3000

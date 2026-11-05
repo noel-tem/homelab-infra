@@ -1,4 +1,4 @@
-# Sonarr, Radarr, Prowlarr, Bazarr, Seerr, and qBittorrent behind Surfshark, in Docker Compose
+# Sonarr, Radarr, Prowlarr, FlareSolverr, Bazarr, Seerr, and qBittorrent behind Surfshark, in Docker Compose
 # Ansible gives it the media and /dev/net/tun (root@pam only) and runs the stack (ansible/roles/arr)
 locals {
   # false shuts the container down (and keeps it down across host reboots); data is kept
