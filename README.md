@@ -22,7 +22,7 @@ Infrastructure for my home Proxmox cluster: `live-laugh-homelab` (192.168.0.50) 
 | Proxmox Backup Server | 110 | https://192.168.0.26:8007 | http://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
 | Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
 | Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
-| Arr | 114 | 192.168.0.31 | http://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, requests | On `live-laugh-tomcruise`; Docker Compose stack, qBittorrent behind Surfshark (see [Media](#media)) |
+| Arr | 114 | 192.168.0.31 | http://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, seerr | On `live-laugh-tomcruise`; Docker Compose stack, qBittorrent behind Surfshark (see [Media](#media)) |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -153,8 +153,8 @@ After that, change it with `smbpasswd media` inside the container. The share is 
 Jellyfin and the arr stack are separate containers on `live-laugh-tomcruise` that share one folder. The 2 TB HDD is ext4, mounted on the node at `/mnt/hdd`, and `/mnt/hdd/media` is bind-mounted into both at `/mnt/media` ([`roles/media_mount`](ansible/roles/media_mount/)). Downloads and the library are on the same filesystem, so Sonarr and Radarr import with hardlinks instead of copies:
 
 ```
-/mnt/media/downloads/{tv,movies}   qBittorrent saves here
-/mnt/media/shows, /mnt/media/movies   Sonarr/Radarr hardlink here; Jellyfin's libraries
+/mnt/media/downloads/{tv,movies,anime}   qBittorrent saves here, one category each
+/mnt/media/{shows,movies,anime}          Sonarr/Radarr hardlink here; Jellyfin's libraries
 ```
 
 Everything is owned by the `library` group (gid 2000, set in `group_vars/all.yml`), which exists in both containers with Jellyfin in it. The apps run as `arr` (uid 2000) with umask 002, so neither side locks the other out.

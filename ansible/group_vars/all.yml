@@ -48,7 +48,7 @@ proxied_services:
   prowlarr: "{{ guests.arr.ip }}:9696"
   bazarr: "{{ guests.arr.ip }}:6767"
   qbit: "{{ guests.arr.ip }}:8080"
-  requests: "{{ guests.arr.ip }}:5055"
+  seerr: "{{ guests.arr.ip }}:5055"
   # PBS only serves HTTPS
   pbs: "https://{{ guests.pbs.ip }}:8007"
 # InfluxDB on the metrics guest; Proxmox writes to it and Grafana reads from it

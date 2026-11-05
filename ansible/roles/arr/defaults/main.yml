@@ -16,8 +16,11 @@ arr_media_dirs:
   - downloads
   - downloads/tv
   - downloads/movies
+  - downloads/anime
   - movies
   - shows
+  # Its own library and category, so anime gets its own Jellyfin library and Sonarr's anime settings
+  - anime
 # Seerr's image runs as its own node user, not PUID
 arr_seerr_uid: 1000
 arr_images:
