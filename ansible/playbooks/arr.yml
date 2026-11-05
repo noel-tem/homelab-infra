@@ -1,0 +1,15 @@
+# First, so the stack starts with the media and the tun device already in place
+- name: Give arr the media and a tun device
+  hosts: proxmox
+  roles:
+    # pct only sees containers on its own node
+    - role: media_mount
+      media_mount_guests: [arr]
+      when: inventory_hostname == guests.arr.node
+    - role: tun_passthrough
+      when: inventory_hostname == guests.arr.node
+
+- name: Configure the arr stack
+  hosts: arr
+  roles:
+    - arr

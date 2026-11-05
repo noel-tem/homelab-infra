@@ -1,0 +1,97 @@
+# Written by Ansible (roles/arr); edit the template, not this file
+name: arr
+
+# linuxserver.io images run as this user and group; umask 002 keeps files group-writable for jellyfin and SMB
+x-linuxserver-env: &linuxserver-env
+  PUID: "{{ arr_uid }}"
+  PGID: "{{ media_gid }}"
+  UMASK: "002"
+  TZ: {{ arr_timezone }}
+
+services:
+  # Surfshark over WireGuard; qBittorrent uses its network, so torrent traffic can't leave any other way
+  gluetun:
+    image: {{ arr_images.gluetun }}
+    cap_add: [NET_ADMIN]
+    devices: [/dev/net/tun:/dev/net/tun]
+    env_file: vpn.env
+    environment:
+      VPN_SERVICE_PROVIDER: surfshark
+      VPN_TYPE: wireguard
+      SERVER_COUNTRIES: {{ arr_vpn_countries }}
+      # Lets the web UI answer LAN clients, which would otherwise be routed into the tunnel
+      FIREWALL_OUTBOUND_SUBNETS: {{ home_subnet }}
+      TZ: {{ arr_timezone }}
+    ports:
+      # qBittorrent's web UI, which lives in this container's network
+      - 8080:8080
+    volumes:
+      - {{ arr_config }}/gluetun:/gluetun
+    restart: unless-stopped
+
+  qbittorrent:
+    image: {{ arr_images.qbittorrent }}
+    network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+    environment:
+      <<: *linuxserver-env
+      WEBUI_PORT: "8080"
+    volumes:
+      - {{ arr_config }}/qbittorrent:/config
+      - {{ media_path }}:/data
+    restart: unless-stopped
+
+  prowlarr:
+    image: {{ arr_images.prowlarr }}
+    environment: *linuxserver-env
+    ports:
+      - 9696:9696
+    volumes:
+      - {{ arr_config }}/prowlarr:/config
+    restart: unless-stopped
+
+  # Sonarr, Radarr and qBittorrent all see the media at /data, so download paths match without remote path mappings
+  sonarr:
+    image: {{ arr_images.sonarr }}
+    environment: *linuxserver-env
+    ports:
+      - 8989:8989
+    volumes:
+      - {{ arr_config }}/sonarr:/config
+      - {{ media_path }}:/data
+    restart: unless-stopped
+
+  radarr:
+    image: {{ arr_images.radarr }}
+    environment: *linuxserver-env
+    ports:
+      - 7878:7878
+    volumes:
+      - {{ arr_config }}/radarr:/config
+      - {{ media_path }}:/data
+    restart: unless-stopped
+
+  bazarr:
+    image: {{ arr_images.bazarr }}
+    environment: *linuxserver-env
+    ports:
+      - 6767:6767
+    volumes:
+      - {{ arr_config }}/bazarr:/config
+      - {{ media_path }}:/data
+    restart: unless-stopped
+
+  # Requests; signs people in with their Jellyfin accounts
+  seerr:
+    image: {{ arr_images.seerr }}
+    init: true
+    environment:
+      TZ: {{ arr_timezone }}
+    ports:
+      - 5055:5055
+    volumes:
+      - {{ arr_config }}/seerr:/app/config
+    restart: unless-stopped

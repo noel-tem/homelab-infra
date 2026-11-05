@@ -1,0 +1,12 @@
+- name: Read container config
+  ansible.builtin.command: pct config {{ tun_passthrough_vmid }}
+  register: tun_passthrough_config
+  changed_when: false
+  check_mode: false
+
+# Device passthrough is root@pam only, like the GPU (roles/gpu_passthrough)
+- name: Pass the tun device through
+  ansible.builtin.command: pct set {{ tun_passthrough_vmid }} --{{ tun_passthrough_key }} {{ tun_passthrough_device }}
+  when: "(tun_passthrough_key ~ ': ' ~ tun_passthrough_device) not in tun_passthrough_config.stdout"
+  changed_when: true
+  notify: Reboot container for tun

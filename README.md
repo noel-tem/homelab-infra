@@ -16,12 +16,13 @@ Infrastructure for my home Proxmox cluster: `live-laugh-homelab` (192.168.0.50) 
 | Caddy | 105 | http://192.168.0.21 | — | Reverse proxy for every `*.home.arpa` name; normally holds the VIP `192.168.0.28` |
 | Caddy 2 | 111 | http://192.168.0.27 | — | On `live-laugh-tomcruise`; failover for Caddy, takes over the VIP when it's down |
 | Gitea | 106 | http://192.168.0.22:3000 | http://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
-| Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | On `live-laugh-tomcruise`; iGPU passthrough, media volume filling its 2 TB HDD, shared over SMB at `\\192.168.0.23\media` |
+| Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | On `live-laugh-tomcruise`; iGPU passthrough; the media on the 2 TB HDD (shared with arr), also over SMB at `\\192.168.0.23\media` |
 | Uptime Kuma | 108 | http://192.168.0.24:3001 | http://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
 | Metrics | 109 | http://192.168.0.25:3000 | http://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
 | Proxmox Backup Server | 110 | https://192.168.0.26:8007 | http://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
 | Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
 | Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
+| Arr | 114 | 192.168.0.31 | http://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, requests | On `live-laugh-tomcruise`; Docker Compose stack, qBittorrent behind Surfshark (see [Media](#media)) |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -65,7 +66,8 @@ ansible/
   site.yml          runs everything
   connection_plugins/  pct: the faster container connection
   playbooks/        one per host/service
-  roles/            caddy, keepalived, gitea, jellyfin, media_share, gpu_passthrough, pihole, pihole_dns, subnet_router,
+  roles/            caddy, keepalived, gitea, jellyfin, media_share, media_mount, gpu_passthrough, tun_passthrough, arr,
+                    pihole, pihole_dns, subnet_router,
                     uptime_kuma, influxdb, grafana, metrics_server, auto_updates, disk_storage, pbs, pbs_storage,
                     opentofu, ansible_tools, gitea_runner, claude_code, deployer
   group_vars/       shared vars (guest IDs/IPs, domain, proxied services)
@@ -99,9 +101,11 @@ export INFLUXDB_PASSWORD=...                # InfluxDB admin; only read when Inf
 export PBS_ADMIN_PASSWORD=...               # admin@pbs on PBS; only read when that user is created
 export PIHOLE_PASSWORD=...                  # Pi-hole web UI; only read when Ansible installs a new Pi-hole
 export DEPLOYER_GITEA_TOKEN=...             # the deployer bot's Gitea token (see CI)
+export SURFSHARK_WIREGUARD_PRIVATE_KEY=...  # Surfshark WireGuard key (see Media); only read when arr is first set up
+export SURFSHARK_WIREGUARD_ADDRESS=...      # the Address line of a Surfshark WireGuard config, e.g. 10.14.0.2/16
 ```
 
-`playbooks/ci.yml` copies all of these except the Tailscale ones to the deployer. It stops if any is unset, except the three that are only read on first setup (`INFLUXDB_PASSWORD`, `PBS_ADMIN_PASSWORD`, `PIHOLE_PASSWORD`), which it copies only if set.
+`playbooks/ci.yml` copies all of these except the Tailscale ones to the deployer. It stops if any is unset, except the ones that are only read on first setup (`INFLUXDB_PASSWORD`, `PBS_ADMIN_PASSWORD`, `PIHOLE_PASSWORD` and the two `SURFSHARK_` ones), which it copies only if set.
 
 ## Usage
 
@@ -144,6 +148,41 @@ MEDIA_SHARE_PASSWORD=... ansible-playbook playbooks/jellyfin.yml
 
 After that, change it with `smbpasswd media` inside the container. The share is `\\192.168.0.23\media`.
 
+### Media
+
+Jellyfin and the arr stack are separate containers on `live-laugh-tomcruise` that share one folder. The 2 TB HDD is ext4, mounted on the node at `/mnt/hdd`, and `/mnt/hdd/media` is bind-mounted into both at `/mnt/media` ([`roles/media_mount`](ansible/roles/media_mount/)). Downloads and the library are on the same filesystem, so Sonarr and Radarr import with hardlinks instead of copies:
+
+```
+/mnt/media/downloads/{tv,movies}   qBittorrent saves here
+/mnt/media/shows, /mnt/media/movies   Sonarr/Radarr hardlink here; Jellyfin's libraries
+```
+
+Everything is owned by the `library` group (gid 2000, set in `group_vars/all.yml`), which exists in both containers with Jellyfin in it. The apps run as `arr` (uid 2000) with umask 002, so neither side locks the other out.
+
+The arr container runs [Docker Compose](ansible/roles/arr/templates/compose.yaml.j2) in `/opt/arr`, with each app's config in `/var/lib/arr/<app>` (backed up by PBS). Inside the stack, apps reach each other by service name: in Sonarr and Radarr, add qBittorrent as host `gluetun`, port `8080`, and use `/data/...` paths (qBittorrent, Sonarr, Radarr and Bazarr all see the media at `/data`). Point Prowlarr at `http://sonarr:8989` and `http://radarr:7878`, and Seerr at Jellyfin on `http://192.168.0.23:8096`. qBittorrent prints a temporary web UI password on first start: `docker compose -f /opt/arr/compose.yaml logs qbittorrent`.
+
+qBittorrent uses gluetun's network, so torrent traffic only leaves through Surfshark's WireGuard tunnel, and stops if the tunnel is down. Surfshark doesn't forward ports, so peers can't connect in. Downloads work, but seeding is weak. To get the key, in the Surfshark dashboard go to VPN → Manual setup → Router → WireGuard, generate a key pair, and download a config for any location. The private key goes in `.env` as `SURFSHARK_WIREGUARD_PRIVATE_KEY` and the config's `Address` as `SURFSHARK_WIREGUARD_ADDRESS`. The first `playbooks/arr.yml` run writes them to `/opt/arr/vpn.env`; after that, edit that file and rerun the playbook. The server country is `arr_vpn_countries` in [`roles/arr/defaults/main.yml`](ansible/roles/arr/defaults/main.yml).
+
+Images use `latest` tags and aren't updated automatically. To update, run `docker compose pull && docker compose up -d` in `/opt/arr`.
+
+The bind mounts and the arr container's `/dev/net/tun` are set by Ansible with `pct set`, because both need `root@pam` and Tofu uses an API token. The LXC module ignores `mount_point` changes for that reason.
+
+#### Moving from the old LVM media volume
+
+Until 2026-11, the HDD was LVM storage `hdd-lvm` holding a volume attached to Jellyfin as `mp0`. `disk_storage` and `media_mount` refuse to touch the disk or `mp0` while that's still there, so remove it by hand once, on `live-laugh-tomcruise`. This erases everything on the HDD:
+
+```sh
+pct shutdown 107
+pct set 107 --delete mp0      # the volume shows up as unused0
+pct set 107 --delete unused0  # destroys the volume
+pvesm remove hdd-lvm
+vgremove hdd
+pvremove /dev/disk/by-id/ata-ST2000DM001-1ER164_Z4Z0BAQY
+pct start 107
+```
+
+Then, from `ansible/`: `ansible-playbook playbooks/proxmox-host.yml` (formats and mounts the HDD), `tofu apply` in `stacks/homelab` (creates arr), `ansible-playbook playbooks/jellyfin.yml playbooks/arr.yml`, and `playbooks/caddy.yml` + `playbooks/pihole.yml` for the new names.
+
 ### Monitoring
 
 `playbooks/metrics.yml` installs InfluxDB and Grafana, then points Proxmox's metric server (Datacenter → Metric Server) at InfluxDB. Proxmox pushes host and guest stats into the `proxmox` bucket, which keeps 30 days. Grafana already has InfluxDB as its data source. For dashboards, import [Proxmox [Flux]](https://grafana.com/grafana/dashboards/15356) (ID `15356`) under Dashboards → New → Import.
@@ -152,9 +191,9 @@ Uptime Kuma's monitors and notifications are set up in its web UI. They aren't i
 
 ### Backups
 
-`playbooks/pbs.yml` installs Proxmox Backup Server and connects the cluster to it as storage `pbs`. A nightly job (`nightly`, 02:00) backs up every guest in snapshot mode, keeping 7 daily, 4 weekly and 3 monthly backups. PBS verifies each new backup and runs garbage collection on Saturdays. Volumes marked `backup = false`, like Jellyfin's media and PBS's own datastore, are skipped.
+`playbooks/pbs.yml` installs Proxmox Backup Server and connects the cluster to it as storage `pbs`. A nightly job (`nightly`, 02:00) backs up every guest in snapshot mode, keeping 7 daily, 4 weekly and 3 monthly backups. PBS verifies each new backup and runs garbage collection on Saturdays. Volumes marked `backup = false`, like PBS's own datastore, are skipped, and so are bind mounts like the media.
 
-The datastore takes up all of the M75s's 1 TB SSD, and Jellyfin's media volume all of its 2 TB HDD. `disk_storage` (in `playbooks/proxmox-host.yml`) turns them into LVM storage `ssd-lvm` and `hdd-lvm`. That role wipes each disk the first time it runs, and never again once its volume group (`ssd`, `hdd`) exists. On a fresh build, run `proxmox-host.yml` before `tofu apply`, since the PBS and Jellyfin containers' volumes need that storage.
+The datastore takes up all of the M75s's 1 TB SSD. `disk_storage` (in `playbooks/proxmox-host.yml`) turns it into LVM storage `ssd-lvm`, wiping the disk the first time it runs and never again once the `ssd` volume group exists. The same role formats the 2 TB HDD as ext4 and mounts it at `/mnt/hdd` (see [Media](#media)). On a fresh build, run `proxmox-host.yml` before `tofu apply`, since PBS's volume needs that storage.
 
 The backups are on the same premises as the guests, so they don't cover losing both machines.
 
@@ -190,7 +229,8 @@ Both of Claude's secrets are readable by any workflow on any branch, which is fi
 
 - **Containers use the Pi-holes for DNS** (`dns_servers = local.pihole_ips`) because the host's `resolv.conf` points at Tailscale's resolver, which containers can't reach.
 - **Rejoining Tailscale**: the auth key is single-use and expires an hour after creation. Mint a fresh one with `tofu -chdir=stacks/tailnet apply -replace='tailscale_tailnet_key.subnet_router["<node>"]'`, then rerun Ansible.
-- **GPU passthrough is done by Ansible, not Tofu**: device passthrough needs `root@pam`, and Tofu uses an API token. The module ignores `device_passthrough` changes for the same reason.
+- **GPU and tun passthrough and the media bind mounts are done by Ansible, not Tofu**: they need `root@pam`, and Tofu uses an API token. The module ignores `device_passthrough` and `mount_point` changes for the same reason.
+- **Docker in an LXC** (the arr container) relies on nesting and has broken after Proxmox updates before, usually over AppArmor. If containers stop starting after an upgrade, check `journalctl -u docker` in the container first.
 - **Changing the LXC template** won't rebuild existing containers; the module ignores template changes. Tofu downloads the template to every node (`proxmox_download_file.debian_13` in `locals.tf`), so bump its URL and checksum to change it.
 - **Tailscale OAuth scope errors** show up as 404s, not 403s.
 - **Home Assistant**'s guest agent reports internal interfaces with changing MACs, so `mac_addresses` is ignored.

@@ -1,7 +1,8 @@
 media_share_name: media
-media_share_path: /mnt/media
+media_share_path: "{{ media_path }}"
 media_share_user: media
-# Files land owned by Jellyfin so it can manage them like its own
+# Files land owned by Jellyfin and the media group, so both it and arr can manage them
 media_share_owner: jellyfin
+media_share_group: "{{ media_group }}"
 # Only read when the Samba account doesn't exist yet, so it never needs to be in the repo
 media_share_password: "{{ lookup('ansible.builtin.env', 'MEDIA_SHARE_PASSWORD') }}"

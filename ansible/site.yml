@@ -17,6 +17,7 @@
 - ansible.builtin.import_playbook: playbooks/caddy.yml
 - ansible.builtin.import_playbook: playbooks/gitea.yml
 - ansible.builtin.import_playbook: playbooks/jellyfin.yml
+- ansible.builtin.import_playbook: playbooks/arr.yml
 - ansible.builtin.import_playbook: playbooks/uptimekuma.yml
 - ansible.builtin.import_playbook: playbooks/metrics.yml
 - ansible.builtin.import_playbook: playbooks/pbs.yml

@@ -1,8 +1,16 @@
+# First, so Jellyfin's setup sees the real media directory rather than an empty one under the mount point
+- name: Give Jellyfin the media
+  hosts: proxmox
+  roles:
+    - role: media_mount
+      media_mount_guests: [jellyfin]
+      when: inventory_hostname == guests.jellyfin.node
+
 - name: Configure Jellyfin
   hosts: jellyfin
   roles:
     - jellyfin
-    # SMB share of the media volume for copying files in
+    # SMB share of the media for copying files in
     - media_share
 
 # After Jellyfin is installed, so its user is already in the container's render group

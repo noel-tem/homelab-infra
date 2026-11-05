@@ -15,17 +15,22 @@
     # A fresh repo isn't in the cache yet, even if the cache is under an hour old
     cache_valid_time: "{{ 0 if jellyfin_repo is changed else 3600 }}"
 
-# The volume is created root-owned; Jellyfin needs to write metadata next to the media
-- name: Give Jellyfin the media volume
-  ansible.builtin.file:
-    path: /mnt/media
-    state: directory
-    owner: jellyfin
-    group: jellyfin
-    mode: "0755"
+# The media is bind-mounted from the host (roles/media_mount) and owned by the media group, which arr writes as too
+- name: Create media group
+  ansible.builtin.group:
+    name: "{{ media_group }}"
+    gid: "{{ media_gid }}"
+
+- name: Add Jellyfin to the media group
+  ansible.builtin.user:
+    name: jellyfin
+    groups: ["{{ media_group }}"]
+    append: true
+  register: jellyfin_media_group
 
 - name: Enable and start Jellyfin
   ansible.builtin.systemd_service:
     name: jellyfin
     enabled: true
-    state: started
+    # A running service only picks up a new group when it restarts
+    state: "{{ 'restarted' if jellyfin_media_group is changed else 'started' }}"

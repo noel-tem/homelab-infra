@@ -90,7 +90,8 @@ resource "proxmox_virtual_environment_container" "this" {
 
   lifecycle {
     # Updating the template later shouldn't rebuild existing containers
-    # Passthrough is root@pam only, so Ansible sets it on the host (ansible/roles/gpu_passthrough)
-    ignore_changes = [operating_system[0].template_file_id, device_passthrough]
+    # Passthrough and bind mounts are root@pam only, so Ansible sets them on the host (ansible/roles/gpu_passthrough, media_mount)
+    # Mount points are still created with the container; only later changes to them (like resizing PBS's) are ignored
+    ignore_changes = [operating_system[0].template_file_id, device_passthrough, mount_point]
   }
 }

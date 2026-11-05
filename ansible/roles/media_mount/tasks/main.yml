@@ -1,0 +1,43 @@
+# Bind mounts are root@pam only, so Tofu (an API token) can't set them; the module ignores mount_point changes for this
+- name: Read container configs
+  ansible.builtin.command: pct config {{ guests[item].vmid }}
+  register: media_mount_configs
+  changed_when: false
+  check_mode: false
+  loop: "{{ media_mount_guests }}"
+  when: guests[item].node == inventory_hostname
+
+# Never replaces a mount point it didn't make, e.g. the old LVM media volume (README: Media)
+- name: Refuse to replace another mount point
+  ansible.builtin.assert:
+    that: >-
+      (media_mount_key ~ ': ') not in item.stdout
+      or (media_mount_key ~ ': ' ~ media_mount_entry) in item.stdout
+    fail_msg: "{{ item.item }} already has a different {{ media_mount_key }}; remove it by hand first"
+    quiet: true
+  loop: "{{ media_mount_configs.results | rejectattr('skipped', 'defined') }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Bind-mount the media
+  ansible.builtin.command: pct set {{ guests[item.item].vmid }} --{{ media_mount_key }} {{ media_mount_entry }}
+  loop: "{{ media_mount_configs.results | rejectattr('skipped', 'defined') }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: "(media_mount_key ~ ': ' ~ media_mount_entry) not in item.stdout"
+  register: media_mount_set
+  changed_when: true
+
+# The mount only shows up in a running container after a restart; a stopped one picks it up when it starts
+- name: Restart containers that got the mount
+  ansible.builtin.shell: |
+    set -eo pipefail
+    if pct status {{ guests[item.item.item].vmid }} | grep -q running; then
+      pct reboot {{ guests[item.item.item].vmid }}
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ media_mount_set.results | selectattr('changed', 'defined') | selectattr('changed') }}"
+  loop_control:
+    label: "{{ item.item.item }}"
+  changed_when: true

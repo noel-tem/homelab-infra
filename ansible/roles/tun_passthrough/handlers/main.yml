@@ -1,0 +1,4 @@
+# The device only shows up in the container after a restart
+- name: Reboot container for tun
+  ansible.builtin.command: pct reboot {{ tun_passthrough_vmid }}
+  changed_when: true

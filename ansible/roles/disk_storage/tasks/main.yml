@@ -43,3 +43,72 @@
   loop_control:
     label: "{{ item.storage_id }}"
   when: item.storage_id not in disk_storage_list.stdout | from_json | map(attribute='storage')
+
+- name: Read filesystem signatures
+  ansible.builtin.command: blkid -o value -s TYPE {{ item.disk }}
+  register: disk_storage_fs_types
+  # blkid exits 2 when the disk has no signature at all
+  failed_when: disk_storage_fs_types.rc not in [0, 2]
+  changed_when: false
+  check_mode: false
+  loop: "{{ disk_storage_filesystems }}"
+  loop_control:
+    label: "{{ item.label }}"
+
+# Never wipes a disk holding something else (e.g. the old hdd volume group): tear that down by hand first (README: Media)
+- name: Refuse to format a disk that's in use
+  ansible.builtin.assert:
+    that: item.stdout in ['', 'ext4']
+    fail_msg: "{{ item.item.disk }} holds {{ item.stdout }}, not ext4; remove it by hand before Ansible formats the disk"
+    quiet: true
+  loop: "{{ disk_storage_fs_types.results }}"
+  loop_control:
+    label: "{{ item.item.label }}"
+
+# One-time and destructive: only runs on a blank disk, so later runs never touch it
+- name: Format the disk
+  ansible.builtin.shell: |
+    set -e
+    for part in {{ item.item.disk }}-part*; do
+      [ -e "$part" ] && wipefs --all "$part"
+    done
+    wipefs --all {{ item.item.disk }}
+    udevadm settle
+    mkfs.ext4 -L {{ item.item.label }} {{ item.item.disk }}
+  args:
+    executable: /bin/bash
+  loop: "{{ disk_storage_fs_types.results }}"
+  loop_control:
+    label: "{{ item.item.label }}"
+  when: item.stdout == ''
+  changed_when: true
+
+# A mount unit rather than fstab, since ansible.posix isn't a dependency
+- name: Write mount unit
+  ansible.builtin.template:
+    src: disk.mount.j2
+    dest: /etc/systemd/system/{{ item.path | regex_replace('^/', '') | replace('/', '-') }}.mount
+    mode: "0644"
+  loop: "{{ disk_storage_filesystems }}"
+  loop_control:
+    label: "{{ item.label }}"
+  register: disk_storage_units
+
+- name: Mount the disk
+  ansible.builtin.systemd_service:
+    name: "{{ item.path | regex_replace('^/', '') | replace('/', '-') }}.mount"
+    enabled: true
+    state: started
+    daemon_reload: "{{ disk_storage_units is changed }}"
+  loop: "{{ disk_storage_filesystems }}"
+  loop_control:
+    label: "{{ item.label }}"
+
+- name: Create media directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ disk_storage_media_dirs }}"

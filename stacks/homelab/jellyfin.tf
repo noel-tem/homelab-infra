@@ -20,7 +20,6 @@ module "jellyfin" {
   cores           = 2
   memory          = 2048
   disk_size       = 16
-  # Separate volume for the library taking up all of the 2 TB HDD (ansible/roles/disk_storage), kept out of the root disk and out of backups
-  mount_points = [{ volume = "hdd-lvm", size = "1863G", path = "/mnt/media" }]
-  tags         = ["media"]
+  # The media on the 2 TB HDD is a bind mount shared with arr, which only root@pam can set, so Ansible adds it (ansible/roles/media_mount)
+  tags = ["media"]
 }

@@ -2,6 +2,6 @@
   hosts: proxmox
   roles:
     - subnet_router
-    # Before stacks/homelab is applied, since the PBS and Jellyfin volumes go on these disks
+    # Before stacks/homelab is applied, since PBS's volume and the shared media go on these disks
     - role: disk_storage
       when: inventory_hostname == disk_storage_node

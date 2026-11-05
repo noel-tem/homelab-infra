@@ -1,7 +1,13 @@
-# The M75s's local disks, each turned into a volume group and thick LVM Proxmox storage; by-id so a renumbered disk can't be wiped by mistake
+# The M75s's local disks; by-id so a renumbered disk can't be wiped by mistake
 disk_storage_node: live-laugh-tomcruise
+# Each turned into a volume group and thick LVM Proxmox storage
 disk_storage_disks:
-  # 2 TB HDD, all of it Jellyfin's media volume (stacks/homelab/jellyfin.tf)
-  - { disk: /dev/disk/by-id/ata-ST2000DM001-1ER164_Z4Z0BAQY, vg: hdd, storage_id: hdd-lvm }
   # 1 TB SSD, all of it PBS's datastore volume (stacks/homelab/pbs.tf)
   - { disk: /dev/disk/by-id/ata-Samsung_SSD_850_EVO_1TB_S21CNWAG205072Y, vg: ssd, storage_id: ssd-lvm }
+# Each formatted ext4 (whole disk, no partition table) and mounted on the node, for bind mounts into containers
+disk_storage_filesystems:
+  # 2 TB HDD; holds the media that jellyfin and arr share (roles/media_mount)
+  - { disk: /dev/disk/by-id/ata-ST2000DM001-1ER164_Z4Z0BAQY, label: hdd, path: /mnt/hdd }
+# Created on the HDD, owned by container root and the media group as the containers see them
+disk_storage_media_dirs:
+  - { path: "{{ media_host_path }}", owner: 100000, group: "{{ 100000 + media_gid }}", mode: "2775" }

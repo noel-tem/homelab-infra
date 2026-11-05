@@ -1,0 +1,14 @@
+# Written by Ansible (roles/disk_storage)
+[Unit]
+Description=Disk {{ item.label }}
+# Containers with bind mounts into it start after local-fs.target
+Before=local-fs.target
+
+[Mount]
+What={{ item.disk }}
+Where={{ item.path }}
+Type=ext4
+Options=defaults,noatime
+
+[Install]
+WantedBy=local-fs.target

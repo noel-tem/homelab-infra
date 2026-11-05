@@ -1,0 +1,4 @@
+# Guests to give the media, by inventory name; only the ones on this node are touched, since pct only sees those
+media_mount_guests: "{{ media_guests }}"
+media_mount_key: mp0
+media_mount_entry: "{{ media_host_path }},mp={{ media_path }}"

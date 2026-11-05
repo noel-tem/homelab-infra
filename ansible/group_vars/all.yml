@@ -27,6 +27,8 @@ guests:
   # CI: a Gitea Actions runner for Claude and lint jobs (no infra credentials), and the agent that deploys main (README: CI)
   runner: { vmid: 112, ip: 192.168.0.29, node: live-laugh-homelab }
   deployer: { vmid: 113, ip: 192.168.0.30, node: live-laugh-homelab }
+  # Sonarr, Radarr, Prowlarr, Bazarr, Seerr and qBittorrent behind Surfshark (roles/arr); shares jellyfin's media, so it has to be on the same node
+  arr: { vmid: 114, ip: 192.168.0.31, node: live-laugh-tomcruise }
 # The repo CI runs for; the runner registers with this Gitea and the deployer pulls from it
 gitea_url: http://{{ guests.gitea.ip }}:3000
 gitea_repo: noeltem/homelab-infra
@@ -41,6 +43,12 @@ proxied_services:
   jellyfin: "{{ guests.jellyfin.ip }}:8096"
   uptime: "{{ guests.uptimekuma.ip }}:3001"
   grafana: "{{ guests.metrics.ip }}:3000"
+  sonarr: "{{ guests.arr.ip }}:8989"
+  radarr: "{{ guests.arr.ip }}:7878"
+  prowlarr: "{{ guests.arr.ip }}:9696"
+  bazarr: "{{ guests.arr.ip }}:6767"
+  qbit: "{{ guests.arr.ip }}:8080"
+  requests: "{{ guests.arr.ip }}:5055"
   # PBS only serves HTTPS
   pbs: "https://{{ guests.pbs.ip }}:8007"
 # InfluxDB on the metrics guest; Proxmox writes to it and Grafana reads from it
@@ -54,3 +62,13 @@ pbs_cluster_user: pve@pbs
 pbs_cluster_role: DatastorePowerUser
 # The operator token InfluxDB is set up with; lives in .env so it never needs to be in the repo
 influxdb_token: "{{ lookup('ansible.builtin.env', 'INFLUXDB_TOKEN') }}"
+# The 2 TB HDD is mounted on media_node (roles/disk_storage) and media_host_path is bind-mounted into
+# every guest in media_guests at media_path (roles/media_mount), so downloads and the library share one
+# filesystem and Sonarr/Radarr can hardlink instead of copying
+media_node: live-laugh-tomcruise
+media_host_path: /mnt/hdd/media
+media_path: /mnt/media
+media_guests: [jellyfin, arr]
+# Owns the media and is in every guest that writes to it; fixed so files keep working across guests (the host sees gid 100000 + this)
+media_group: library
+media_gid: 2000

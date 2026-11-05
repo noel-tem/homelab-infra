@@ -1,0 +1,4 @@
+# Container to hand /dev/net/tun to, for gluetun's WireGuard tunnel; runs on the container's node
+tun_passthrough_vmid: "{{ guests.arr.vmid }}"
+tun_passthrough_key: dev0
+tun_passthrough_device: /dev/net/tun

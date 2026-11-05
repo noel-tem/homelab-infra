@@ -1,0 +1,112 @@
+- name: Add Docker apt repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/debian
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: stable
+    signed_by: https://download.docker.com/linux/debian/gpg
+  register: arr_docker_repo
+
+- name: Install Docker
+  ansible.builtin.apt:
+    name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+    update_cache: true
+    # A fresh repo isn't in the cache yet, even if the cache is under an hour old
+    cache_valid_time: "{{ 0 if arr_docker_repo is changed else 3600 }}"
+
+# Keeps container logs from filling the 32 GB root disk
+- name: Cap container logs
+  ansible.builtin.copy:
+    content: |
+      {
+        "log-driver": "local",
+        "log-opts": { "max-size": "10m", "max-file": "3" }
+      }
+    dest: /etc/docker/daemon.json
+    mode: "0644"
+  register: arr_docker_config
+
+- name: Enable and start Docker
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: "{{ 'restarted' if arr_docker_config is changed else 'started' }}"
+
+- name: Create media group
+  ansible.builtin.group:
+    name: "{{ media_group }}"
+    gid: "{{ media_gid }}"
+
+- name: Create app user
+  ansible.builtin.user:
+    name: "{{ arr_user }}"
+    uid: "{{ arr_uid }}"
+    group: "{{ media_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+# setgid so everything created under them stays in the media group
+- name: Create media directories
+  ansible.builtin.file:
+    path: "{{ media_path }}/{{ item }}"
+    state: directory
+    owner: "{{ arr_user }}"
+    group: "{{ media_group }}"
+    mode: "2775"
+  loop: "{{ arr_media_dirs }}"
+
+- name: Create compose directory
+  ansible.builtin.file:
+    path: "{{ arr_path }}"
+    state: directory
+    mode: "0750"
+
+- name: Create config directories
+  ansible.builtin.file:
+    path: "{{ arr_config }}/{{ item }}"
+    state: directory
+    owner: "{{ arr_seerr_uid if item == 'seerr' else arr_user }}"
+    group: "{{ arr_seerr_uid if item == 'seerr' else media_group }}"
+    mode: "0750"
+  loop: "{{ arr_images | list }}"
+
+- name: Check for the VPN secrets
+  ansible.builtin.stat:
+    path: "{{ arr_path }}/vpn.env"
+  register: arr_vpn_env
+
+# Set once; change them later by editing vpn.env in the container and rerunning this role
+- name: Write the VPN secrets
+  when: not arr_vpn_env.stat.exists
+  block:
+    - name: Require the Surfshark WireGuard settings
+      ansible.builtin.assert:
+        that:
+          - arr_wireguard_private_key | length > 0
+          - arr_wireguard_address | length > 0
+        fail_msg: Set SURFSHARK_WIREGUARD_PRIVATE_KEY and SURFSHARK_WIREGUARD_ADDRESS to create {{ arr_path }}/vpn.env
+
+    - name: Write vpn.env
+      ansible.builtin.copy:
+        content: |
+          WIREGUARD_PRIVATE_KEY={{ arr_wireguard_private_key }}
+          WIREGUARD_ADDRESSES={{ arr_wireguard_address }}
+        dest: "{{ arr_path }}/vpn.env"
+        mode: "0600"
+      no_log: true
+
+- name: Write compose file
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ arr_path }}/compose.yaml"
+    mode: "0644"
+
+# Recreates only containers whose config, env or image tag changed; `docker compose pull` first to update images
+- name: Start the stack
+  ansible.builtin.command: docker compose up --detach --remove-orphans
+  args:
+    chdir: "{{ arr_path }}"
+  register: arr_up
+  changed_when: arr_up.stderr is search('Created|Recreated|Started|Removed')

@@ -7,6 +7,6 @@
    valid users = {{ media_share_user }}
    read only = no
    force user = {{ media_share_owner }}
-   force group = {{ media_share_owner }}
-   create mask = 0644
-   directory mask = 0755
+   force group = {{ media_share_group }}
+   create mask = 0664
+   directory mask = 2775
