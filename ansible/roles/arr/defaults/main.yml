@@ -4,23 +4,14 @@ arr_path: /opt/arr
 arr_config: /var/lib/arr
 # The apps run as this user and media_group, so jellyfin can read what they write and vice versa
 arr_user: arr
-arr_uid: 2000
+# Owns the media folders too (media_uid in group_vars/all.yml)
+arr_uid: "{{ media_uid }}"
 arr_timezone: America/Los_Angeles
 # Surfshark server location for gluetun, by country name (comma-separated for several)
 arr_vpn_countries: United States
 # Only read when the secrets file doesn't exist yet, so they never need to be in the repo (README: Media)
 arr_wireguard_private_key: "{{ lookup('ansible.builtin.env', 'SURFSHARK_WIREGUARD_PRIVATE_KEY') }}"
 arr_wireguard_address: "{{ lookup('ansible.builtin.env', 'SURFSHARK_WIREGUARD_ADDRESS') }}"
-# Under media_path; downloads and the library on one filesystem, so imports are hardlinks
-arr_media_dirs:
-  - downloads
-  - downloads/tv
-  - downloads/movies
-  - downloads/anime
-  - movies
-  - shows
-  # Its own library and category, so anime gets its own Jellyfin library and Sonarr's anime settings
-  - anime
 # Seerr's image runs as its own node user, not PUID
 arr_seerr_uid: 1000
 arr_images:

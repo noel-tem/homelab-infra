@@ -205,6 +205,7 @@ mkdir /mnt/pool/media && chown 100000:102000 /mnt/pool/media && chmod 2775 /mnt/
 - Each branch is a `pool` folder on its disk, which only exists while that disk is mounted, so a missing disk is skipped instead of mergerfs writing to the SSD in its place.
 - systemd reads the pool's first branch as a path, so the pool requires that disk to mount; the youngest disk (`disk2`) goes first, and the other two are only waited for (`x-systemd.after`). `nofail` lets the node boot with a disk missing.
 - `100000:102000` is the containers' root and `library` group as the host sees them.
+- The media folders (`media_dirs` in `group_vars/all.yml`) are made by Ansible on the node, not in the containers: on the pool, a container's root acts as its host user (100000), which can't change owners, so creating them from inside fails.
 
 ### Monitoring
 

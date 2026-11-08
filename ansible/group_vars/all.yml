@@ -81,3 +81,16 @@ media_guests: [jellyfin, arr]
 # Owns the media and is in every guest that writes to it; fixed so files keep working across guests (the host sees gid 100000 + this)
 media_group: library
 media_gid: 2000
+# arr's user, which owns the media folders (the host sees uid 100000 + this)
+media_uid: 2000
+# Made under media_host_path on media_node by roles/media_mount, owned by media_uid and media_group with setgid, so
+# everything created in them stays in the media group. Downloads and the library on one filesystem, so imports are hardlinks
+media_dirs:
+  - downloads
+  - downloads/tv
+  - downloads/movies
+  - downloads/anime
+  - movies
+  - shows
+  # Its own library and category, so anime gets its own Jellyfin library and Sonarr's anime settings
+  - anime

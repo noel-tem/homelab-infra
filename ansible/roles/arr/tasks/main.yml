@@ -47,16 +47,6 @@
     shell: /usr/sbin/nologin
     create_home: false
 
-# setgid so everything created under them stays in the media group
-- name: Create media directories
-  ansible.builtin.file:
-    path: "{{ media_path }}/{{ item }}"
-    state: directory
-    owner: "{{ arr_user }}"
-    group: "{{ media_group }}"
-    mode: "2775"
-  loop: "{{ arr_media_dirs }}"
-
 - name: Create compose directory
   ansible.builtin.file:
     path: "{{ arr_path }}"
