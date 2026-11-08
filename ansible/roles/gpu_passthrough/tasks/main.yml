@@ -15,5 +15,6 @@
   vars:
     gpu_passthrough_entry: "{{ gpu_passthrough_device }},gid={{ gpu_passthrough_render.stdout.split(':')[2] }}"
   ansible.builtin.command: pct set {{ gpu_passthrough_vmid }} --dev0 {{ gpu_passthrough_entry }}
+  changed_when: true
   when: "'dev0: ' ~ gpu_passthrough_entry not in gpu_passthrough_config.stdout"
   notify: Reboot container

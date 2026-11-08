@@ -18,6 +18,7 @@
       - --bucket={{ influxdb_bucket }}
       - --token={{ influxdb_token }}
   no_log: true
+  changed_when: true
   when: metrics_server_id not in metrics_server_list.stdout | from_json | map(attribute='id')
 
 # The token isn't compared; to change it, run `pvesh set /cluster/metrics/server/influxdb --token=...` on the host
@@ -31,6 +32,7 @@
       - --port=8086
   vars:
     metrics_server_current: "{{ metrics_server_list.stdout | from_json | selectattr('id', '==', metrics_server_id) | first }}"
+  changed_when: true
   when:
     - metrics_server_id in metrics_server_list.stdout | from_json | map(attribute='id')
     - metrics_server_current.server != metrics_server_host or metrics_server_current.port | int != 8086

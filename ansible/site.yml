@@ -1,6 +1,8 @@
-- ansible.builtin.import_playbook: playbooks/proxmox-host.yml
+- name: Proxmox nodes
+  ansible.builtin.import_playbook: playbooks/proxmox-host.yml
 # Before anything connects to a container, so each is reached through the node it's on now
-- ansible.builtin.import_playbook: playbooks/locate-guests.yml
+- name: Find the node each container is on
+  ansible.builtin.import_playbook: playbooks/locate-guests.yml
 
 - name: Bootstrap Python in containers
   hosts: lxc
@@ -20,14 +22,24 @@
       register: python_install
       changed_when: "'Setting up python3' in python_install.stdout"
 
-- ansible.builtin.import_playbook: playbooks/auto-updates.yml
-- ansible.builtin.import_playbook: playbooks/caddy.yml
-- ansible.builtin.import_playbook: playbooks/gitea.yml
-- ansible.builtin.import_playbook: playbooks/jellyfin.yml
-- ansible.builtin.import_playbook: playbooks/arr.yml
-- ansible.builtin.import_playbook: playbooks/uptimekuma.yml
-- ansible.builtin.import_playbook: playbooks/metrics.yml
-- ansible.builtin.import_playbook: playbooks/pbs.yml
-- ansible.builtin.import_playbook: playbooks/ci.yml
+- name: Automatic security updates
+  ansible.builtin.import_playbook: playbooks/auto-updates.yml
+- name: Caddy
+  ansible.builtin.import_playbook: playbooks/caddy.yml
+- name: Gitea
+  ansible.builtin.import_playbook: playbooks/gitea.yml
+- name: Jellyfin
+  ansible.builtin.import_playbook: playbooks/jellyfin.yml
+- name: Arr stack
+  ansible.builtin.import_playbook: playbooks/arr.yml
+- name: Uptime Kuma
+  ansible.builtin.import_playbook: playbooks/uptimekuma.yml
+- name: InfluxDB and Grafana
+  ansible.builtin.import_playbook: playbooks/metrics.yml
+- name: Proxmox Backup Server
+  ansible.builtin.import_playbook: playbooks/pbs.yml
+- name: CI runner and deployer
+  ansible.builtin.import_playbook: playbooks/ci.yml
 # After Caddy, so names don't point at it until it's serving them
-- ansible.builtin.import_playbook: playbooks/pihole.yml
+- name: Pi-hole
+  ansible.builtin.import_playbook: playbooks/pihole.yml

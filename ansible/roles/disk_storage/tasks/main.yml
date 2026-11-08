@@ -42,6 +42,7 @@
   loop: "{{ disk_storage_disks }}"
   loop_control:
     label: "{{ item.storage_id }}"
+  changed_when: true
   when: item.storage_id not in disk_storage_list.stdout | from_json | map(attribute='storage')
 
 - name: Read filesystem signatures

@@ -1,4 +1,5 @@
-- ansible.builtin.import_playbook: locate-guests.yml
+- name: Find the node each container is on
+  ansible.builtin.import_playbook: locate-guests.yml
 
 - name: Configure Gitea
   hosts: gitea
