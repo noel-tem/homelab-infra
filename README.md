@@ -78,6 +78,8 @@ Guest IDs, IPs and nodes live only in `guests` in [`ansible/group_vars/all.yml`]
 
 A guest's `node` there is where Tofu creates it. Moving a guest afterwards (by hand, or by HA) needs no change: Tofu ignores the node of an existing guest, and every playbook that configures containers starts with [`playbooks/locate-guests.yml`](ansible/playbooks/locate-guests.yml), which asks the cluster where each one is running and connects through that node.
 
+To switch Jellyfin or arr off, set `running: false` on it there: Tofu stops it and keeps it from starting on boot, and Ansible skips it, since a stopped container can't be configured. The other guests still use the `<name>_running` local in their `.tf` file, which only Tofu reads.
+
 ## Prerequisites
 
 - OpenTofu and Ansible (`ansible-core` + `paramiko`, e.g. via pipx)
@@ -151,6 +153,8 @@ MEDIA_SHARE_PASSWORD=... ansible-playbook playbooks/jellyfin.yml
 After that, change it with `smbpasswd media` inside the container. The share is `\\192.168.0.23\media`.
 
 ### Media
+
+**Right now the media is offline.** The 2 TB HDD has moved to `live-laugh-nicolekidman`, where it isn't set up yet, so nothing mounts it, and Jellyfin and arr are switched off (`running: false`). The rest of this section describes the setup on `live-laugh-tomcruise` until then.
 
 Jellyfin and the arr stack are separate containers on `live-laugh-tomcruise` that share one folder. The 2 TB HDD is ext4, mounted on the node at `/mnt/hdd`, and `/mnt/hdd/media` is bind-mounted into both at `/mnt/media` ([`roles/media_mount`](ansible/roles/media_mount/)). Downloads and the library are on the same filesystem, so Sonarr and Radarr import with hardlinks instead of copies:
 

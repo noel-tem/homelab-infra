@@ -6,6 +6,11 @@
   hosts: lxc
   gather_facts: false
   tasks:
+    # A stopped container can't be reached
+    - name: Skip containers that are switched off
+      ansible.builtin.meta: end_host
+      when: not guests[inventory_hostname].running | default(true)
+
     # Modules need Python, so install it with raw before anything else runs
     # The pct connection doesn't quote raw commands, so without a shell the Proxmox host would run everything after ||
     - name: Install python3

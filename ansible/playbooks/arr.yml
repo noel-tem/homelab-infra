@@ -1,5 +1,8 @@
 - ansible.builtin.import_playbook: locate-guests.yml
 
+# Every play skips arr while it's switched off (running: false in group_vars/all.yml), since a stopped
+# container can't be configured and the tun role restarts it
+
 # First, so the stack starts with the media and the tun device already in place
 - name: Give arr the media and a tun device
   hosts: proxmox
@@ -7,11 +10,20 @@
     # pct only sees containers on its own node
     - role: media_mount
       media_mount_guests: [arr]
-      when: inventory_hostname == guests.arr.node
+      when: inventory_hostname == guests.arr.node and guests.arr.running | default(true)
     - role: tun_passthrough
-      when: inventory_hostname == guests.arr.node
+      when: inventory_hostname == guests.arr.node and guests.arr.running | default(true)
 
 - name: Configure the arr stack
   hosts: arr
+  # Gathered below, once it's known to be running
+  gather_facts: false
+  pre_tasks:
+    - name: Skip arr while it's switched off
+      ansible.builtin.meta: end_host
+      when: not guests.arr.running | default(true)
+
+    - name: Gather facts
+      ansible.builtin.setup:
   roles:
     - arr

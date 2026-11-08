@@ -2,5 +2,15 @@
 
 - name: Configure automatic security updates
   hosts: lxc
+  # Gathered below, once it's known to be running
+  gather_facts: false
+  pre_tasks:
+    # A stopped container can't be reached
+    - name: Skip containers that are switched off
+      ansible.builtin.meta: end_host
+      when: not guests[inventory_hostname].running | default(true)
+
+    - name: Gather facts
+      ansible.builtin.setup:
   roles:
     - auto_updates
