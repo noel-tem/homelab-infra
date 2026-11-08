@@ -1,8 +1,9 @@
 # Sonarr, Radarr, Prowlarr, FlareSolverr, Bazarr, Seerr, and qBittorrent behind Surfshark, in Docker Compose
 # Ansible gives it the media and /dev/net/tun (root@pam only) and runs the stack (ansible/roles/arr)
 locals {
-  # false shuts the container down (and keeps it down across host reboots); data is kept
-  arr_running = false
+  # Set with running in ansible/group_vars/all.yml, which the playbook reads too; false shuts the container
+  # down (and keeps it down across host reboots); data is kept
+  arr_running = try(local.guests.arr.running, true)
 }
 
 module "arr" {

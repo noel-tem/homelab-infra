@@ -9,6 +9,7 @@ nodes:
 # The one place guest IDs, addresses and nodes live; Tofu reads this file too (stacks/homelab/locals.tf)
 # node is where Tofu creates the guest; moving it later doesn't need a change here, since Tofu ignores the
 # node after creation and Ansible connects through whichever node it's on (playbooks/locate-guests.yml)
+# running: false switches a guest off: Tofu stops it and keeps it down across reboots, and Ansible skips it
 guests:
   pihole: { vmid: 100, ip: 192.168.0.10, node: live-laugh-homelab }
   # Failover for pihole, on the other node so DNS survives either one going down
@@ -21,7 +22,8 @@ guests:
   caddy2: { vmid: 111, ip: 192.168.0.27, node: live-laugh-tomcruise }
   gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise }
   # Needs a node with an iGPU at /dev/dri/renderD128; its media volume is on the HDD, so it has to stay on that node (see disk_storage)
-  jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-tomcruise }
+  # Off until the media moves to live-laugh-nicolekidman
+  jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-tomcruise, running: false }
   uptimekuma: { vmid: 108, ip: 192.168.0.24, node: live-laugh-homelab }
   metrics: { vmid: 109, ip: 192.168.0.25, node: live-laugh-homelab }
   # Its datastore is on the SSD, so it has to stay on that node (see disk_storage)
@@ -30,7 +32,8 @@ guests:
   runner: { vmid: 112, ip: 192.168.0.29, node: live-laugh-homelab }
   deployer: { vmid: 113, ip: 192.168.0.30, node: live-laugh-homelab }
   # Sonarr, Radarr, Prowlarr, FlareSolverr, Bazarr, Seerr and qBittorrent behind Surfshark (roles/arr); shares jellyfin's media, so it has to be on the same node
-  arr: { vmid: 114, ip: 192.168.0.31, node: live-laugh-tomcruise }
+  # Off until the media moves to live-laugh-nicolekidman
+  arr: { vmid: 114, ip: 192.168.0.31, node: live-laugh-tomcruise, running: false }
 # The repo CI runs for; the runner registers with this Gitea and the deployer pulls from it
 gitea_url: http://{{ guests.gitea.ip }}:3000
 gitea_repo: noeltem/homelab-infra
@@ -64,7 +67,8 @@ pbs_cluster_user: pve@pbs
 pbs_cluster_role: DatastorePowerUser
 # The operator token InfluxDB is set up with; lives in .env so it never needs to be in the repo
 influxdb_token: "{{ lookup('ansible.builtin.env', 'INFLUXDB_TOKEN') }}"
-# The 2 TB HDD is mounted on media_node (roles/disk_storage) and media_host_path is bind-mounted into
+# The 2 TB HDD was mounted on media_node and is moving to live-laugh-nicolekidman; until it's set up there, nothing
+# mounts it and jellyfin and arr are off. media_host_path is bind-mounted into
 # every guest in media_guests at media_path (roles/media_mount), so downloads and the library share one
 # filesystem and Sonarr/Radarr can hardlink instead of copying
 media_node: live-laugh-tomcruise

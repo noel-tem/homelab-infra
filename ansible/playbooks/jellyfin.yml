@@ -1,15 +1,27 @@
 - ansible.builtin.import_playbook: locate-guests.yml
 
+# Every play skips Jellyfin while it's switched off (running: false in group_vars/all.yml), since a stopped
+# container can't be configured and the GPU role restarts it
+
 # First, so Jellyfin's setup sees the real media directory rather than an empty one under the mount point
 - name: Give Jellyfin the media
   hosts: proxmox
   roles:
     - role: media_mount
       media_mount_guests: [jellyfin]
-      when: inventory_hostname == guests.jellyfin.node
+      when: inventory_hostname == guests.jellyfin.node and guests.jellyfin.running | default(true)
 
 - name: Configure Jellyfin
   hosts: jellyfin
+  # Gathered below, once it's known to be running
+  gather_facts: false
+  pre_tasks:
+    - name: Skip Jellyfin while it's switched off
+      ansible.builtin.meta: end_host
+      when: not guests.jellyfin.running | default(true)
+
+    - name: Gather facts
+      ansible.builtin.setup:
   roles:
     - jellyfin
     # SMB share of the media for copying files in
@@ -21,4 +33,4 @@
   roles:
     # pct only sees containers on its own node
     - role: gpu_passthrough
-      when: inventory_hostname == guests.jellyfin.node
+      when: inventory_hostname == guests.jellyfin.node and guests.jellyfin.running | default(true)

@@ -5,9 +5,9 @@ disk_storage_disks:
   # 1 TB SSD, all of it PBS's datastore volume (stacks/homelab/pbs.tf)
   - { disk: /dev/disk/by-id/ata-Samsung_SSD_850_EVO_1TB_S21CNWAG205072Y, vg: ssd, storage_id: ssd-lvm }
 # Each formatted ext4 (whole disk, no partition table) and mounted on the node, for bind mounts into containers
-disk_storage_filesystems:
-  # 2 TB HDD; holds the media that jellyfin and arr share (roles/media_mount)
-  - { disk: /dev/disk/by-id/ata-ST2000DM001-1ER164_Z4Z0BAQY, label: hdd, path: /mnt/hdd }
-# Created on the HDD, owned by container root and the media group as the containers see them
-disk_storage_media_dirs:
-  - { path: "{{ media_host_path }}", owner: 100000, group: "{{ 100000 + media_gid }}", mode: "2775" }
+# Empty: the 2 TB HDD that held the media moved to live-laugh-nicolekidman. A disk listed here that isn't
+# plugged in reads as blank and fails the run trying to format it, so only list disks this node has
+disk_storage_filesystems: []
+# Created on those disks, owned by container root and the media group as the containers see them; empty with
+# them, since these would otherwise be made on the node's root disk
+disk_storage_media_dirs: []
