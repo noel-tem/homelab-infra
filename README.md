@@ -20,6 +20,7 @@ Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` 
 | Uptime Kuma | 108 | http://192.168.0.24:3001 | http://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
 | Metrics | 109 | http://192.168.0.25:3000 | http://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
 | Proxmox Backup Server | 110 | https://192.168.0.26:8007 | http://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
+| Proxmox Backup Server 2 | 115 | https://192.168.0.32:8007 | http://pbs2.home.arpa | On `live-laugh-nicolekidman`; a second copy of every backup, on its 1 TB HDD (see [Backups](#backups)) |
 | Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
 | Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
 | Arr | 114 | 192.168.0.31 | http://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, seerr | On `live-laugh-tomcruise`; Docker Compose stack, qBittorrent behind Surfshark (see [Media](#media)) |
@@ -154,14 +155,16 @@ After that, change it with `smbpasswd media` inside the container. The share is 
 
 ### Media
 
-**Right now the media is offline.** The 2 TB HDD has moved to `live-laugh-nicolekidman`, where it isn't set up yet, so nothing mounts it, and Jellyfin and arr are switched off (`running: false`). The rest of this section describes the setup on `live-laugh-tomcruise` until then.
+**Right now the media is offline.** Jellyfin and arr are still on `live-laugh-tomcruise` and switched off (`running: false`), until they're restored onto `live-laugh-nicolekidman`, where the disks now are.
 
-Jellyfin and the arr stack are separate containers on `live-laugh-tomcruise` that share one folder. The 2 TB HDD is ext4, mounted on the node at `/mnt/hdd`, and `/mnt/hdd/media` is bind-mounted into both at `/mnt/media` ([`roles/media_mount`](ansible/roles/media_mount/)). Downloads and the library are on the same filesystem, so Sonarr and Radarr import with hardlinks instead of copies:
+Jellyfin and the arr stack are separate containers on `media_node` (`live-laugh-nicolekidman`) that share one folder. Its three 2 TB HDDs are pooled into one 5.4 TB filesystem at `/mnt/pool` with [mergerfs](https://trapexit.github.io/mergerfs/), and `/mnt/pool/media` is bind-mounted into both at `/mnt/media` ([`roles/media_mount`](ansible/roles/media_mount/)). Downloads and the library are on the same filesystem, so Sonarr and Radarr import with hardlinks instead of copies:
 
 ```
 /mnt/media/downloads/{tv,movies,anime}   qBittorrent saves here, one category each
 /mnt/media/{shows,movies,anime}          Sonarr/Radarr hardlink here; Jellyfin's libraries
 ```
+
+The media has no redundancy, on purpose. Each disk is plain ext4, and mergerfs spreads new files across them by free space (`category.create=pfrd`) and keeps a hardlink on the same disk as its file. Losing a disk loses only the files on it, which Sonarr and Radarr then show as missing.
 
 Everything is owned by the `library` group (gid 2000, set in `group_vars/all.yml`), which exists in both containers with Jellyfin in it. The apps run as `arr` (uid 2000) with umask 002, so neither side locks the other out.
 
@@ -173,21 +176,37 @@ Images use `latest` tags and aren't updated automatically. To update, run `docke
 
 The bind mounts and the arr container's `/dev/net/tun` are set by Ansible with `pct set`, because both need `root@pam` and Tofu uses an API token. The LXC module ignores `mount_point` changes for that reason.
 
-#### Moving from the old LVM media volume
+#### Setting up the disks by hand
 
-Until 2026-11, the HDD was LVM storage `hdd-lvm` holding a volume attached to Jellyfin as `mp0`. `disk_storage` and `media_mount` refuse to touch the disk or `mp0` while that's still there, so remove it by hand once, on `live-laugh-tomcruise`. This erases everything on the HDD:
+The disks and mergerfs on `live-laugh-nicolekidman` aren't managed by Ansible, so after reinstalling the node, redo this. Formatting erases the disks:
 
 ```sh
-pct shutdown 107
-pct set 107 --delete mp0      # the volume shows up as unused0
-pct set 107 --delete unused0  # destroys the volume
-pvesm remove hdd-lvm
-vgremove hdd
-pvremove /dev/disk/by-id/ata-ST2000DM001-1ER164_Z4Z0BAQY
-pct start 107
+mkfs.ext4 -L disk0 /dev/disk/by-id/ata-ST2000DM001-1ER164_Z4Z0BAQY
+mkfs.ext4 -L disk1 /dev/disk/by-id/ata-ST2000DL003-9VT166_5YD6NFH7
+mkfs.ext4 -L disk2 /dev/disk/by-id/ata-ST2000DL003-9VT166_5YD6NFHC
+mkdir -p /mnt/hdd/disk{0,1,2} /mnt/pool
+apt install mergerfs
 ```
 
-Then, from `ansible/`: `ansible-playbook playbooks/proxmox-host.yml` (formats and mounts the HDD), `tofu apply` in `stacks/homelab` (creates arr), `ansible-playbook playbooks/jellyfin.yml playbooks/arr.yml`, and `playbooks/caddy.yml` + `playbooks/pihole.yml` for the new names.
+`/etc/fstab`:
+
+```
+LABEL=disk0 /mnt/hdd/disk0 ext4 defaults,noatime,nofail 0 2
+LABEL=disk1 /mnt/hdd/disk1 ext4 defaults,noatime,nofail 0 2
+LABEL=disk2 /mnt/hdd/disk2 ext4 defaults,noatime,nofail 0 2
+/mnt/hdd/disk2/pool:/mnt/hdd/disk1/pool:/mnt/hdd/disk0/pool /mnt/pool fuse.mergerfs cache.files=off,category.create=pfrd,func.getattr=newest,dropcacheonclose=false,allow_other,minfreespace=50G,fsname=pool,x-systemd.after=/mnt/hdd/disk0,x-systemd.after=/mnt/hdd/disk1 0 0
+```
+
+Then `systemctl daemon-reload && mount -a`, and once the disks are mounted:
+
+```sh
+mkdir /mnt/hdd/disk{0,1,2}/pool
+mkdir /mnt/pool/media && chown 100000:102000 /mnt/pool/media && chmod 2775 /mnt/pool/media
+```
+
+- Each branch is a `pool` folder on its disk, which only exists while that disk is mounted, so a missing disk is skipped instead of mergerfs writing to the SSD in its place.
+- systemd reads the pool's first branch as a path, so the pool requires that disk to mount; the youngest disk (`disk2`) goes first, and the other two are only waited for (`x-systemd.after`). `nofail` lets the node boot with a disk missing.
+- `100000:102000` is the containers' root and `library` group as the host sees them.
 
 ### Monitoring
 
@@ -199,9 +218,23 @@ Uptime Kuma's monitors and notifications are set up in its web UI. They aren't i
 
 `playbooks/pbs.yml` installs Proxmox Backup Server and connects the cluster to it as storage `pbs`. A nightly job (`nightly`, 02:00) backs up every guest in snapshot mode, keeping 7 daily, 4 weekly and 3 monthly backups. PBS verifies each new backup and runs garbage collection on Saturdays. Volumes marked `backup = false`, like PBS's own datastore, are skipped, and so are bind mounts like the media.
 
-The datastore takes up all of the M75s's 1 TB SSD. `disk_storage` (in `playbooks/proxmox-host.yml`) turns it into LVM storage `ssd-lvm`, wiping the disk the first time it runs and never again once the `ssd` volume group exists. The same role formats the 2 TB HDD as ext4 and mounts it at `/mnt/hdd` (see [Media](#media)). On a fresh build, run `proxmox-host.yml` before `tofu apply`, since PBS's volume needs that storage.
+The datastore takes up all of the M75s's 1 TB SSD. `disk_storage` (in `playbooks/proxmox-host.yml`) turns it into LVM storage `ssd-lvm`, wiping the disk the first time it runs and never again once the `ssd` volume group exists. On a fresh build, run `proxmox-host.yml` before `tofu apply`, since PBS's volume needs that storage.
 
-The backups are on the same premises as the guests, so they don't cover losing both machines.
+`pbs2`, on `live-laugh-nicolekidman`, holds a second copy ([`roles/pbs_sync`](ansible/roles/pbs_sync/)):
+
+- At 05:00 it pulls every new backup from `pbs`, logging in as `sync@pbs`, which can only read there.
+- It keeps what it pulled even after `pbs` prunes or loses it, and prunes on its own at 07:00, on the same 7 daily, 4 weekly and 3 monthly terms.
+- On Sundays it re-reads any copy it hasn't checked in 30 days, and runs garbage collection on Saturdays.
+- The cluster has it as storage `pbs2`, read-only, for restores. Nothing backs up to it directly, and a node can't delete from it.
+
+If `pbs`, its SSD or `live-laugh-tomcruise` is lost, restore from `pbs2` instead: pick the backup under storage `pbs2` in the web UI. Its datastore takes up the node's 1 TB HDD, as LVM storage `hdd-backup`, set up by hand:
+
+```sh
+vgcreate backup /dev/disk/by-id/ata-WDC_WD10EZEX-60WN4A0_WD-WCC6Y6PUS3S8
+pvesm add lvm hdd-backup --vgname backup --nodes live-laugh-nicolekidman --content rootdir,images
+```
+
+Both copies are in the same house, so they don't cover losing the house.
 
 ### CI
 

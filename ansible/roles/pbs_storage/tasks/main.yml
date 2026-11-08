@@ -1,12 +1,12 @@
-# Runs on a Proxmox node, after check.yml there and token.yml on PBS
+# Runs on a Proxmox node, after check.yml there and token.yml on each PBS
 - name: Add PBS as storage
   ansible.builtin.command:
     argv:
       - pvesm
       - add
       - pbs
-      - "{{ pbs_storage_id }}"
-      - --server={{ guests.pbs.ip }}
+      - "{{ item.storage_id }}"
+      - --server={{ guests[item.guest].ip }}
       - --datastore={{ pbs_datastore }}
       - --username={{ pbs.pbs_storage_token.tokenid }}
       - --password={{ pbs.pbs_storage_token.value }}
@@ -14,9 +14,10 @@
       - --content=backup
       - --prune-backups={{ pbs_storage_retention }}
   vars:
-    pbs: "{{ hostvars['pbs'] }}"
+    pbs: "{{ hostvars[item.guest] }}"
+  loop: "{{ pbs_storage_servers }}"
   changed_when: true
-  when: pbs_storage_missing
+  when: item.guest in pbs_storage_missing
   no_log: true
 
 - name: Read backup jobs
@@ -34,7 +35,7 @@
       - /cluster/backup
       - --id={{ pbs_storage_job_id }}
       - --schedule={{ pbs_storage_job_schedule }}
-      - --storage={{ pbs_storage_id }}
+      - --storage={{ pbs_storage_job_storage }}
       - --all=1
       - --mode=snapshot
   changed_when: true
