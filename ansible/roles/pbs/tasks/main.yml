@@ -54,6 +54,7 @@
       - "{{ pbs_datastore_path }}"
       - --gc-schedule={{ pbs_gc_schedule }}
       - --verify-new=true
+  changed_when: true
   when: pbs_datastore not in pbs_datastores.stdout | default('[]', true) | from_json | map(attribute='name')
 
 - name: Read users
@@ -75,11 +76,13 @@
       ansible.builtin.command:
         argv: [proxmox-backup-manager, user, create, "{{ pbs_admin_user }}", "--password={{ pbs_admin_password }}"]
       no_log: true
+      changed_when: true
 
 # No password: it only logs in through its API token
 - name: Create {{ pbs_cluster_user }}
   ansible.builtin.command:
     argv: [proxmox-backup-manager, user, create, "{{ pbs_cluster_user }}"]
+  changed_when: true
   when: pbs_cluster_user not in pbs_users.stdout | default('[]', true) | from_json | map(attribute='userid')
 
 - name: Read permissions
@@ -96,6 +99,7 @@
   loop:
     - { path: /, role: Admin, auth_id: "{{ pbs_admin_user }}" }
     - { path: "/datastore/{{ pbs_datastore }}", role: "{{ pbs_cluster_role }}", auth_id: "{{ pbs_cluster_user }}" }
+  changed_when: true
   when: >-
     pbs_acls.stdout | default('[]', true) | from_json
     | selectattr('path', '==', item.path) | selectattr('ugid', '==', item.auth_id) | selectattr('roleid', '==', item.role)

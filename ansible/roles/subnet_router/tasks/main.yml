@@ -5,10 +5,13 @@
     mode: "0644"
   notify: Apply sysctl
 
+# Tailscale's own installer, which adds its apt repo for this distro; fetching it with get_url first would be the
+# same thing in two steps. pipefail, so a failed download fails here instead of sh running nothing and succeeding
 - name: Install Tailscale
-  ansible.builtin.shell: curl -fsSL https://tailscale.com/install.sh | sh
+  ansible.builtin.shell: set -o pipefail && curl -fsSL https://tailscale.com/install.sh | sh # noqa: command-instead-of-module
   args:
     creates: /usr/bin/tailscale
+    executable: /bin/bash
 
 - name: Read Tailscale status
   ansible.builtin.command: tailscale status --json
@@ -27,6 +30,7 @@
       - --hostname={{ subnet_router_hostname }}
       - --advertise-routes={{ subnet_router_routes | join(',') }}
   no_log: true
+  changed_when: true
   when: (subnet_router_status.stdout | from_json).BackendState | default('') != 'Running'
 
 - name: Read Tailscale prefs
@@ -45,4 +49,5 @@
       - --advertise-routes={{ subnet_router_routes | join(',') }}
   vars:
     prefs: "{{ subnet_router_prefs.stdout | from_json }}"
+  changed_when: true
   when: prefs.Hostname != subnet_router_hostname or (prefs.AdvertiseRoutes | default([], true) | sort) != (subnet_router_routes | sort)

@@ -38,6 +38,7 @@
   ansible.builtin.shell: npm ci --omit dev --no-audit && npm run download-dist
   args:
     chdir: "{{ uptime_kuma_path }}"
+  changed_when: true
   when: uptime_kuma_checkout is changed or not uptime_kuma_dist.stat.exists
   notify: Restart Uptime Kuma
 

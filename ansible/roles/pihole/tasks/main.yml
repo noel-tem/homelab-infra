@@ -66,6 +66,7 @@
   ansible.builtin.command:
     argv: [pihole-FTL, --config, dns.upstreams, "{{ pihole_upstreams | to_json }}"]
   # The output looks like "[ 8.8.8.8, 8.8.4.4 ]", so compare its entries rather than the exact text
+  changed_when: true
   when: >-
     pihole_upstreams_current.stdout | default('') | trim | regex_replace('^\\[|\\]$', '') | split(',')
     | map('trim') | select | list != pihole_upstreams
@@ -90,5 +91,6 @@
         INSERT OR IGNORE INTO adlist (address, type) VALUES ({{ pihole_adlists_sql | join(', 0), (') }}, 0);
   vars:
     pihole_adlists_sql: "{{ pihole_adlists | map('replace', \"'\", \"''\") | map('regex_replace', '^(.*)$', \"'\\1'\") | list }}"
+  changed_when: true
   when: pihole_adlists_current.stdout_lines | default([]) | sort != pihole_adlists | sort
   notify: Update gravity

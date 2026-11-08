@@ -1,3 +1,4 @@
 # The device only shows up in the container after a restart
 - name: Reboot container
   ansible.builtin.command: pct reboot {{ gpu_passthrough_vmid }}
+  changed_when: true

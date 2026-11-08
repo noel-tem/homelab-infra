@@ -15,6 +15,7 @@
       - --prune-backups={{ pbs_storage_retention }}
   vars:
     pbs: "{{ hostvars['pbs'] }}"
+  changed_when: true
   when: pbs_storage_missing
   no_log: true
 
@@ -36,4 +37,5 @@
       - --storage={{ pbs_storage_id }}
       - --all=1
       - --mode=snapshot
+  changed_when: true
   when: pbs_storage_job_id not in pbs_storage_jobs.stdout | from_json | map(attribute='id')

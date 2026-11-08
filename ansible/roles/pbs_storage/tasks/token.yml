@@ -11,6 +11,7 @@
     argv: [proxmox-backup-manager, user, generate-token, "{{ pbs_cluster_user }}", "{{ pbs_storage_token_name }}"]
   register: pbs_storage_token_output
   no_log: true
+  changed_when: true
 
 # It has no --output-format; it prints "Result: " and then {"tokenid": ..., "value": ...}
 - name: Parse the API token
@@ -27,6 +28,7 @@
       - /datastore/{{ pbs_datastore }}
       - "{{ pbs_cluster_role }}"
       - --auth-id={{ pbs_cluster_user }}!{{ pbs_storage_token_name }}
+  changed_when: true
 
 # PBS's certificate is self-signed, so Proxmox pins it by fingerprint
 - name: Read PBS's certificate fingerprint

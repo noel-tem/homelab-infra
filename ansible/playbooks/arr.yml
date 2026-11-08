@@ -1,4 +1,5 @@
-- ansible.builtin.import_playbook: locate-guests.yml
+- name: Find the node each container is on
+  ansible.builtin.import_playbook: locate-guests.yml
 
 # Every play skips arr while it's switched off (running: false in group_vars/all.yml), since a stopped
 # container can't be configured and the tun role restarts it

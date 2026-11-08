@@ -1,0 +1,4 @@
+# Used by CI (.gitea/workflows/check.yml) and pre-commit, which both lint with --project-dir ansible
+exclude_paths:
+  # The Gitea workflows aren't Ansible; their `on:` key is what yaml[truthy] flags
+  - .gitea/
