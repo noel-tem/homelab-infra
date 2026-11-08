@@ -24,8 +24,7 @@ guests:
   caddy2: { vmid: 111, ip: 192.168.0.27, node: live-laugh-tomcruise }
   gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise }
   # Needs a node with an iGPU at /dev/dri/renderD128, and the media is a bind mount from media_node, so it has to stay there
-  # Still on live-laugh-tomcruise and off until it's restored onto media_node (README: Media)
-  jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-nicolekidman, running: false }
+  jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-nicolekidman }
   uptimekuma: { vmid: 108, ip: 192.168.0.24, node: live-laugh-homelab }
   metrics: { vmid: 109, ip: 192.168.0.25, node: live-laugh-homelab }
   # Its datastore is on the SSD, so it has to stay on that node (see disk_storage)
@@ -37,8 +36,7 @@ guests:
   deployer: { vmid: 113, ip: 192.168.0.30, node: live-laugh-homelab }
   # Sonarr, Radarr, Prowlarr, FlareSolverr, Bazarr, Seerr and qBittorrent behind Surfshark (roles/arr)
   # Shares jellyfin's media, so it has to be on media_node too
-  # Still on live-laugh-tomcruise and off until it's restored onto media_node (README: Media)
-  arr: { vmid: 114, ip: 192.168.0.31, node: live-laugh-nicolekidman, running: false }
+  arr: { vmid: 114, ip: 192.168.0.31, node: live-laugh-nicolekidman }
 # The repo CI runs for; the runner registers with this Gitea and the deployer pulls from it
 gitea_url: http://{{ guests.gitea.ip }}:3000
 gitea_repo: noeltem/homelab-infra
