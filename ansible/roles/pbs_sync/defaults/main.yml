@@ -1,0 +1,19 @@
+# pbs2 pulls pbs's datastore every morning, after the nightly backup (02:00, roles/pbs_storage) has finished
+pbs_sync_source: pbs
+# The remote's name on pbs2
+pbs_sync_remote: pbs
+# Who pbs2 logs in to pbs as; read-only there, so pbs2 can't change or delete anything on pbs
+pbs_sync_user: sync@pbs
+pbs_sync_token_name: pbs2
+pbs_sync_role: DatastoreReader
+pbs_sync_job_id: pull-pbs
+pbs_sync_schedule: "05:00"
+# Copies stay on pbs2 after pbs prunes or loses them (no remove-vanished); pbs2 prunes them itself, on the
+# same terms as pbs (pbs_storage_retention), once the morning's pull is done
+pbs_sync_prune_job_id: retention
+pbs_sync_prune_schedule: "07:00"
+pbs_sync_keep: { daily: 7, weekly: 4, monthly: 3 }
+# Re-reads every copy at least once a month, so a bad chunk on the HDD shows up
+pbs_sync_verify_job_id: verify
+pbs_sync_verify_schedule: sun 04:00
+pbs_sync_verify_outdated_after: 30

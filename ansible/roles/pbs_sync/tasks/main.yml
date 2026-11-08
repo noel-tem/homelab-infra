@@ -1,0 +1,82 @@
+# Runs on pbs2, after check.yml here and token.yml on pbs
+- name: Add pbs as a remote
+  ansible.builtin.command:
+    argv:
+      - proxmox-backup-manager
+      - remote
+      - create
+      - "{{ pbs_sync_remote }}"
+      - --host={{ guests[pbs_sync_source].ip }}
+      - --auth-id={{ source.pbs_sync_token.tokenid }}
+      - --password={{ source.pbs_sync_token.value }}
+      - --fingerprint={{ source.pbs_sync_cert.stdout | regex_search('Fingerprint \(sha256\):\s*(\S+)', '\1') | first }}
+  vars:
+    source: "{{ hostvars[pbs_sync_source] }}"
+  changed_when: true
+  when: pbs_sync_remote_missing
+  no_log: true
+
+- name: Read sync jobs
+  ansible.builtin.command: proxmox-backup-manager sync-job list --output-format json
+  register: pbs_sync_jobs
+  changed_when: false
+  check_mode: false
+  failed_when: pbs_sync_jobs.rc != 0 and not ansible_check_mode
+
+- name: Create the pull job
+  ansible.builtin.command:
+    argv:
+      - proxmox-backup-manager
+      - sync-job
+      - create
+      - "{{ pbs_sync_job_id }}"
+      - --store={{ pbs_datastore }}
+      - --remote={{ pbs_sync_remote }}
+      - --remote-store={{ pbs_datastore }}
+      - --schedule={{ pbs_sync_schedule }}
+      - --remove-vanished=false
+  changed_when: true
+  when: pbs_sync_job_id not in pbs_sync_jobs.stdout | default('[]', true) | from_json | map(attribute='id')
+
+- name: Read prune jobs
+  ansible.builtin.command: proxmox-backup-manager prune-job list --output-format json
+  register: pbs_sync_prune_jobs
+  changed_when: false
+  check_mode: false
+  failed_when: pbs_sync_prune_jobs.rc != 0 and not ansible_check_mode
+
+- name: Create the prune job
+  ansible.builtin.command:
+    argv:
+      - proxmox-backup-manager
+      - prune-job
+      - create
+      - "{{ pbs_sync_prune_job_id }}"
+      - --store={{ pbs_datastore }}
+      - --schedule={{ pbs_sync_prune_schedule }}
+      - --keep-daily={{ pbs_sync_keep.daily }}
+      - --keep-weekly={{ pbs_sync_keep.weekly }}
+      - --keep-monthly={{ pbs_sync_keep.monthly }}
+  changed_when: true
+  when: pbs_sync_prune_job_id not in pbs_sync_prune_jobs.stdout | default('[]', true) | from_json | map(attribute='id')
+
+- name: Read verify jobs
+  ansible.builtin.command: proxmox-backup-manager verify-job list --output-format json
+  register: pbs_sync_verify_jobs
+  changed_when: false
+  check_mode: false
+  failed_when: pbs_sync_verify_jobs.rc != 0 and not ansible_check_mode
+
+- name: Create the verify job
+  ansible.builtin.command:
+    argv:
+      - proxmox-backup-manager
+      - verify-job
+      - create
+      - "{{ pbs_sync_verify_job_id }}"
+      - --store={{ pbs_datastore }}
+      - --schedule={{ pbs_sync_verify_schedule }}
+      - --ignore-verified=true
+      - --outdated-after={{ pbs_sync_verify_outdated_after }}
+  changed_when: true
+  when: pbs_sync_verify_job_id not in pbs_sync_verify_jobs.stdout | default('[]', true) | from_json | map(attribute='id')

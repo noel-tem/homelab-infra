@@ -2,13 +2,13 @@
   ansible.builtin.import_playbook: locate-guests.yml
 
 - name: Configure Proxmox Backup Server
-  hosts: pbs
+  hosts: pbs:pbs2
   roles:
     - pbs
 
 # Storage and backup jobs are cluster-wide, so one node handles them
 # Separate plays rather than delegate_to, since the containers' connection vars are keyed on inventory_hostname
-- name: Check whether the cluster is connected to PBS
+- name: Check whether the cluster is connected to each PBS
   hosts: proxmox[0]
   tasks:
     - name: Read cluster storage
@@ -17,16 +17,39 @@
         tasks_from: check
 
 - name: Make an API token for the cluster
-  hosts: pbs
+  hosts: pbs:pbs2
   tasks:
     - name: Create the token
       ansible.builtin.include_role:
         name: pbs_storage
         tasks_from: token
-      when: hostvars[groups.proxmox[0]].pbs_storage_missing | default(false)
+      when: inventory_hostname in hostvars[groups.proxmox[0]].pbs_storage_missing | default([])
 
 # After PBS is set up, so the datastore and user exist when the cluster connects
 - name: Back up the cluster to PBS
   hosts: proxmox[0]
   roles:
     - pbs_storage
+
+# pbs2 pulls pbs's backups each morning, the same three steps between pbs2 and pbs (roles/pbs_sync)
+- name: Check whether pbs2 is connected to pbs
+  hosts: pbs2
+  tasks:
+    - name: Read remotes
+      ansible.builtin.include_role:
+        name: pbs_sync
+        tasks_from: check
+
+- name: Make a read-only API token for pbs2
+  hosts: pbs
+  tasks:
+    - name: Create the token
+      ansible.builtin.include_role:
+        name: pbs_sync
+        tasks_from: token
+      when: hostvars['pbs2'].pbs_sync_remote_missing | default(false)
+
+- name: Pull pbs's backups into pbs2
+  hosts: pbs2
+  roles:
+    - pbs_sync

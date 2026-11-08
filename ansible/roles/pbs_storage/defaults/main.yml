@@ -1,7 +1,12 @@
-# The storage name under Datacenter -> Storage
-pbs_storage_id: pbs
+# Each PBS the cluster connects to, by inventory name, and its storage name under Datacenter -> Storage
+# pbs2 holds the copies pbs2 pulls from pbs (roles/pbs_sync); it's there to restore from, so no job backs up to it
+pbs_storage_servers:
+  - { guest: pbs, storage_id: pbs }
+  - { guest: pbs2, storage_id: pbs2 }
 pbs_storage_token_name: cluster
-# Applies to every job that backs up to this storage
+# Applies to every job that backs up to these storages; pbs2 prunes its own copies on the same terms (roles/pbs_sync)
 pbs_storage_retention: keep-daily=7,keep-weekly=4,keep-monthly=3
 pbs_storage_job_id: nightly
 pbs_storage_job_schedule: "02:00"
+# The storage the nightly job backs up to
+pbs_storage_job_storage: pbs

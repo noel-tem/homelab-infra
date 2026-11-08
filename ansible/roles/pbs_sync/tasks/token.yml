@@ -1,0 +1,47 @@
+# Runs on pbs. The token's secret is only shown once, so a fresh token is made whenever pbs2's remote needs adding
+- name: Read users
+  ansible.builtin.command: proxmox-backup-manager user list --output-format json
+  register: pbs_sync_users
+  changed_when: false
+
+# No password: it only logs in through its API token
+- name: Create {{ pbs_sync_user }}
+  ansible.builtin.command:
+    argv: [proxmox-backup-manager, user, create, "{{ pbs_sync_user }}"]
+  changed_when: true
+  when: pbs_sync_user not in pbs_sync_users.stdout | from_json | map(attribute='userid')
+
+- name: Delete any old API token
+  ansible.builtin.command:
+    argv: [proxmox-backup-manager, user, delete-token, "{{ pbs_sync_user }}", "{{ pbs_sync_token_name }}"]
+  register: pbs_sync_delete_token
+  changed_when: pbs_sync_delete_token.rc == 0
+  failed_when: false
+
+- name: Create the API token
+  ansible.builtin.command:
+    argv: [proxmox-backup-manager, user, generate-token, "{{ pbs_sync_user }}", "{{ pbs_sync_token_name }}"]
+  register: pbs_sync_token_output
+  no_log: true
+  changed_when: true
+
+# It has no --output-format; it prints "Result: " and then {"tokenid": ..., "value": ...}
+- name: Parse the API token
+  ansible.builtin.set_fact:
+    pbs_sync_token: "{{ pbs_sync_token_output.stdout | regex_replace('^Result:\\s*', '') | from_json }}"
+  no_log: true
+
+# A token gets at most its user's permissions, so both get the role
+- name: Let the user and token read the datastore
+  ansible.builtin.command:
+    argv: [proxmox-backup-manager, acl, update, "/datastore/{{ pbs_datastore }}", "{{ pbs_sync_role }}", "--auth-id={{ item }}"]
+  loop:
+    - "{{ pbs_sync_user }}"
+    - "{{ pbs_sync_user }}!{{ pbs_sync_token_name }}"
+  changed_when: true
+
+# Self-signed, so pbs2 pins it by fingerprint
+- name: Read the certificate fingerprint
+  ansible.builtin.command: proxmox-backup-manager cert info
+  register: pbs_sync_cert
+  changed_when: false

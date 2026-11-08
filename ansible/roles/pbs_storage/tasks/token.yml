@@ -1,4 +1,5 @@
-# Runs on PBS. The token's secret is only shown once, so a fresh token is made whenever the storage needs adding
+# Runs on each PBS whose storage is missing. The token's secret is only shown once, so a fresh token is made
+# whenever the storage needs adding
 - name: Delete any old API token
   ansible.builtin.command:
     argv: [proxmox-backup-manager, user, delete-token, "{{ pbs_cluster_user }}", "{{ pbs_storage_token_name }}"]

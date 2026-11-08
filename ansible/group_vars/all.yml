@@ -23,20 +23,22 @@ guests:
   # Failover for caddy, on the other node; the two share caddy_vip
   caddy2: { vmid: 111, ip: 192.168.0.27, node: live-laugh-tomcruise }
   gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise }
-  # Needs a node with an iGPU at /dev/dri/renderD128; its media volume is on the HDD, so it has to stay on that node (see disk_storage)
-  # Off until the media moves to live-laugh-nicolekidman
-  jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-tomcruise, running: false }
+  # Needs a node with an iGPU at /dev/dri/renderD128, and the media is a bind mount from media_node, so it has to stay there
+  # Still on live-laugh-tomcruise and off until it's restored onto media_node (README: Media)
+  jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-nicolekidman, running: false }
   uptimekuma: { vmid: 108, ip: 192.168.0.24, node: live-laugh-homelab }
   metrics: { vmid: 109, ip: 192.168.0.25, node: live-laugh-homelab }
   # Its datastore is on the SSD, so it has to stay on that node (see disk_storage)
   pbs: { vmid: 110, ip: 192.168.0.26, node: live-laugh-tomcruise }
+  # Second copy of pbs's backups, pulled every morning (roles/pbs_sync); its datastore is on nicolekidman's 1 TB HDD
+  pbs2: { vmid: 115, ip: 192.168.0.32, node: live-laugh-nicolekidman }
   # CI: a Gitea Actions runner for Claude and lint jobs (no infra credentials), and the agent that deploys main (README: CI)
   runner: { vmid: 112, ip: 192.168.0.29, node: live-laugh-homelab }
   deployer: { vmid: 113, ip: 192.168.0.30, node: live-laugh-homelab }
   # Sonarr, Radarr, Prowlarr, FlareSolverr, Bazarr, Seerr and qBittorrent behind Surfshark (roles/arr)
-  # Shares jellyfin's media, so it has to be on the same node
-  # Off until the media moves to live-laugh-nicolekidman
-  arr: { vmid: 114, ip: 192.168.0.31, node: live-laugh-tomcruise, running: false }
+  # Shares jellyfin's media, so it has to be on media_node too
+  # Still on live-laugh-tomcruise and off until it's restored onto media_node (README: Media)
+  arr: { vmid: 114, ip: 192.168.0.31, node: live-laugh-nicolekidman, running: false }
 # The repo CI runs for; the runner registers with this Gitea and the deployer pulls from it
 gitea_url: http://{{ guests.gitea.ip }}:3000
 gitea_repo: noeltem/homelab-infra
@@ -59,6 +61,7 @@ proxied_services:
   seerr: "{{ guests.arr.ip }}:5055"
   # PBS only serves HTTPS
   pbs: "https://{{ guests.pbs.ip }}:8007"
+  pbs2: "https://{{ guests.pbs2.ip }}:8007"
 # InfluxDB on the metrics guest; Proxmox writes to it and Grafana reads from it
 influxdb_url: http://{{ guests.metrics.ip }}:8086
 influxdb_org: homelab
@@ -70,12 +73,11 @@ pbs_cluster_user: pve@pbs
 pbs_cluster_role: DatastorePowerUser
 # The operator token InfluxDB is set up with; lives in .env so it never needs to be in the repo
 influxdb_token: "{{ lookup('ansible.builtin.env', 'INFLUXDB_TOKEN') }}"
-# The 2 TB HDD was mounted on media_node and is moving to live-laugh-nicolekidman; until it's set up there, nothing
-# mounts it and jellyfin and arr are off. media_host_path is bind-mounted into
-# every guest in media_guests at media_path (roles/media_mount), so downloads and the library share one
-# filesystem and Sonarr/Radarr can hardlink instead of copying
-media_node: live-laugh-tomcruise
-media_host_path: /mnt/hdd/media
+# media_node pools its three 2 TB HDDs with mergerfs at /mnt/pool, set up by hand (README: Media), and
+# media_host_path on it is bind-mounted into every guest in media_guests at media_path (roles/media_mount),
+# so downloads and the library share one filesystem and Sonarr/Radarr can hardlink instead of copying
+media_node: live-laugh-nicolekidman
+media_host_path: /mnt/pool/media
 media_path: /mnt/media
 media_guests: [jellyfin, arr]
 # Owns the media and is in every guest that writes to it; fixed so files keep working across guests (the host sees gid 100000 + this)

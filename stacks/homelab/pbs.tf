@@ -25,3 +25,28 @@ module "pbs" {
   mount_points = [{ volume = "ssd-lvm", size = "930G", path = "/mnt/datastore" }]
   tags         = ["backup"]
 }
+
+# Second copy of the backups on live-laugh-nicolekidman, pulled from pbs every morning (ansible/roles/pbs_sync)
+# The cluster has it as storage pbs2 for restores only, so it survives losing pbs, its SSD or tomcruise
+module "pbs2" {
+  source = "../../modules/lxc"
+
+  name             = "pbs2"
+  vm_id            = local.guests.pbs2.vmid
+  started          = local.pbs_running
+  start_on_boot    = local.pbs_running
+  node_name        = local.guests.pbs2.node
+  template_file_id = local.debian_template[local.guests.pbs2.node]
+  ipv4_address     = "${local.guests.pbs2.ip}/24"
+  # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
+  dns_servers     = local.pihole_ips
+  ssh_public_keys = local.ssh_keys
+  cores           = 2
+  memory          = 2048
+  disk_size       = 8
+  # nicolekidman has no local-lvm, only ZFS
+  datastore_id = "local-zfs"
+  # hdd-backup is the 1 TB HDD, set up by hand (README: Backups), all of it for the datastore; like pbs's, kept out of backups
+  mount_points = [{ volume = "hdd-backup", size = "930G", path = "/mnt/datastore" }]
+  tags         = ["backup"]
+}

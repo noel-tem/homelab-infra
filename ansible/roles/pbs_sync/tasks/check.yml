@@ -1,0 +1,15 @@
+# Runs on pbs2
+- name: Read remotes
+  ansible.builtin.command: proxmox-backup-manager remote list --output-format json
+  register: pbs_sync_remotes
+  changed_when: false
+  check_mode: false
+  # PBS isn't installed yet on a first dry run
+  failed_when: pbs_sync_remotes.rc != 0 and not ansible_check_mode
+
+# Read by the token and remote steps; a dry run never connects, since those need a real token
+- name: Note whether pbs2 needs connecting to pbs
+  ansible.builtin.set_fact:
+    pbs_sync_remote_missing: >-
+      {{ pbs_sync_remote not in pbs_sync_remotes.stdout | default('[]', true) | from_json | map(attribute='name')
+      and not ansible_check_mode }}

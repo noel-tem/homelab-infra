@@ -30,6 +30,9 @@ all:
         uptimekuma:
         metrics:
         pbs:
+        pbs2:
+          # Read-only for the cluster: it only restores from pbs2, so a node can't delete the second copy
+          pbs_cluster_role: DatastoreReader
         runner:
         deployer:
         arr:
