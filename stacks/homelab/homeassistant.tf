@@ -61,18 +61,19 @@ resource "proxmox_virtual_environment_vm" "homeassistant" {
     sockets      = 1
     type         = "qemu64"
   }
+  # On ZFS since 2026-11; Proxmox renamed the volumes when they moved, so the EFI disk is disk-0 and this one disk-1
   disk {
     aio               = "io_uring"
     backup            = true
     cache             = "none"
-    datastore_id      = "local-lvm"
+    datastore_id      = "local-zfs"
     discard           = "on"
     file_format       = "raw"
     file_id           = ""
     import_from       = ""
     interface         = "scsi0"
     iothread          = false
-    path_in_datastore = "vm-102-disk-0"
+    path_in_datastore = "vm-102-disk-1"
     queues            = 0
     replicate         = true
     serial            = ""
@@ -80,7 +81,7 @@ resource "proxmox_virtual_environment_vm" "homeassistant" {
     ssd               = true
   }
   efi_disk {
-    datastore_id      = "local-lvm"
+    datastore_id      = "local-zfs"
     file_format       = "raw"
     pre_enrolled_keys = false
     type              = "4m"
