@@ -1,2 +1,2 @@
-# "<caddy vip> <name>.<domain>" for every proxied service, sorted by name
-pihole_dns_hosts: "{{ proxied_services.keys() | sort | map('regex_replace', '^', caddy_vip ~ ' ') | map('regex_replace', '$', '.' ~ dns_domain) | list }}"
+# "<caddy's ip> <name>.<domain>" for every proxied service, sorted by name
+pihole_dns_hosts: "{{ proxied_services.keys() | sort | map('regex_replace', '^', guests.caddy.ip ~ ' ') | map('regex_replace', '$', '.' ~ dns_domain) | list }}"

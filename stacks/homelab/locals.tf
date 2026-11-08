@@ -6,8 +6,8 @@ locals {
   guests = local.shared.guests
   # From all.yml rather than ~/.ssh, so a plan on the deployer (which has its own key) matches one run here
   ssh_keys = [local.shared.ssh_public_key]
-  # Both Pi-holes, so a container keeps resolving names when either is down
-  pihole_ips = [local.guests.pihole.ip, local.guests.pihole2.ip]
+  # The Pi-hole; HA restarts it on another node if its node goes down
+  pihole_ips = [local.guests.pihole.ip]
 
   # Template ID per node, since "local" storage isn't shared
   debian_template = { for node, t in proxmox_download_file.debian_13 : node => t.id }

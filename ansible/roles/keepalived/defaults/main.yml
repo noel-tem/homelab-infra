@@ -1,7 +1,0 @@
-keepalived_vip: "{{ caddy_vip }}"
-# The hosts sharing the VIP, most preferred first; it moves back to the first one when that recovers
-keepalived_hosts: [caddy, caddy2]
-# A host gives up the VIP while this service isn't running
-keepalived_service: caddy
-# Unique per VIP on the LAN (1-255)
-keepalived_router_id: 28

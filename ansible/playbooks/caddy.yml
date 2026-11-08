@@ -2,7 +2,6 @@
   ansible.builtin.import_playbook: locate-guests.yml
 
 - name: Configure Caddy
-  hosts: caddy:caddy2
+  hosts: caddy
   roles:
     - caddy
-    - keepalived

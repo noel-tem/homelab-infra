@@ -22,9 +22,7 @@ all:
         proxmox_vmid: "{{ guests[inventory_hostname].vmid }}"
       hosts:
         pihole:
-        pihole2:
         caddy:
-        caddy2:
         gitea:
         jellyfin:
         uptimekuma:
