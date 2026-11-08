@@ -3,3 +3,5 @@
 *.tfvars
 .env
 .envrc
+ansible/.ansible/
+__pycache__/

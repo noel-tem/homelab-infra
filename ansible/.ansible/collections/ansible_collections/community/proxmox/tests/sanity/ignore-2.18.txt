@@ -1,3 +1,0 @@
-plugins/connection/proxmox_pct_remote.py validate-modules:invalid-documentation  # secret not supported
-plugins/connection/proxmox_qemu_api.py validate-modules:invalid-documentation  # secret not supported
-plugins/inventory/proxmox.py validate-modules:invalid-documentation  # secret not supported
