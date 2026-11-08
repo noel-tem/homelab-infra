@@ -26,32 +26,6 @@
   no_log: true
   notify: Restart Grafana
 
-- name: Provision the dashboard folder
-  ansible.builtin.template:
-    src: dashboards.yaml.j2
-    dest: /etc/grafana/provisioning/dashboards/homelab.yaml
-    owner: root
-    group: grafana
-    mode: "0640"
-  notify: Restart Grafana
-
-- name: Create the dashboards folder
-  ansible.builtin.file:
-    path: /var/lib/grafana/dashboards
-    state: directory
-    owner: root
-    group: grafana
-    mode: "0750"
-
-# Grafana picks up changes to these on its own
-- name: Provision the disk health dashboard
-  ansible.builtin.copy:
-    src: disk-health.json
-    dest: /var/lib/grafana/dashboards/disk-health.json
-    owner: root
-    group: grafana
-    mode: "0640"
-
 - name: Enable and start Grafana
   ansible.builtin.systemd_service:
     name: grafana-server
