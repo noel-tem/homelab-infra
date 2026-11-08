@@ -1,3 +1,5 @@
+- ansible.builtin.import_playbook: locate-guests.yml
+
 - name: Configure Pi-hole
   hosts: pihole:pihole2
   roles:

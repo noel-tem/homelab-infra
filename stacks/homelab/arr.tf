@@ -2,7 +2,7 @@
 # Ansible gives it the media and /dev/net/tun (root@pam only) and runs the stack (ansible/roles/arr)
 locals {
   # false shuts the container down (and keeps it down across host reboots); data is kept
-  arr_running = true
+  arr_running = false
 }
 
 module "arr" {

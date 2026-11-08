@@ -7,6 +7,8 @@ nodes:
   live-laugh-homelab: { ip: 192.168.0.50 }
   live-laugh-tomcruise: { ip: 192.168.0.51 }
 # The one place guest IDs, addresses and nodes live; Tofu reads this file too (stacks/homelab/locals.tf)
+# node is where Tofu creates the guest; moving it later doesn't need a change here, since Tofu ignores the
+# node after creation and Ansible connects through whichever node it's on (playbooks/locate-guests.yml)
 guests:
   pihole: { vmid: 100, ip: 192.168.0.10, node: live-laugh-homelab }
   # Failover for pihole, on the other node so DNS survives either one going down

@@ -13,7 +13,7 @@ locals {
   debian_template = { for node, t in proxmox_download_file.debian_13 : node => t.id }
 }
 
-# On every node, so a guest can be moved by changing its node in all.yml
+# On every node, so a new guest can be created on any of them
 resource "proxmox_download_file" "debian_13" {
   for_each           = local.nodes
   node_name          = each.key

@@ -1,3 +1,5 @@
+- ansible.builtin.import_playbook: locate-guests.yml
+
 # CI: the Gitea Actions runner (Claude + lint, no infra credentials) and the deployer (applies main)
 - name: Configure the Gitea Actions runner
   hosts: runner

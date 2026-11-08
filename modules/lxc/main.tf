@@ -92,6 +92,8 @@ resource "proxmox_virtual_environment_container" "this" {
     # Updating the template later shouldn't rebuild existing containers
     # Passthrough and bind mounts are root@pam only, so Ansible sets them on the host (ansible/roles/gpu_passthrough, media_mount)
     # Mount points are still created with the container; only later changes to them (like resizing PBS's) are ignored
-    ignore_changes = [operating_system[0].template_file_id, device_passthrough, mount_point]
+    # node_name and the disk's datastore force a rebuild when they differ, so HA failover or moving a disk
+    # (pct migrate, pct move-volume) would plan to destroy the container; both only apply when it's created
+    ignore_changes = [operating_system[0].template_file_id, device_passthrough, mount_point, node_name, disk[0].datastore_id]
   }
 }

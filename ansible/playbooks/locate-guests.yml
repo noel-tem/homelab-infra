@@ -1,0 +1,43 @@
+# Connects to each container through the node it's running on now, so one that HA moved (or that was
+# migrated by hand) is still reached; otherwise inventory.yml uses its node in group_vars/all.yml
+# Imported at the top of every playbook that configures containers; only does anything once per run
+- name: Ask the cluster where each guest is
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: Read the cluster's guests
+      ansible.builtin.command: pvesh get /cluster/resources --type vm --output-format json
+      register: locate_guests_resources
+      changed_when: false
+      check_mode: false
+      # One node answering is enough, and the containers on a node that's down can't be reached anyway
+      ignore_unreachable: true
+      when: not locate_guests_done | default(false)
+
+    - name: Skip this the next time it's imported in the same run
+      ansible.builtin.set_fact:
+        locate_guests_done: true
+
+# set_fact runs on the controller, so this works for stopped containers too; delegating from the play above
+# instead would template each container's inventory ansible_host with the node's inventory_hostname
+- name: Point each container at its node
+  hosts: lxc
+  gather_facts: false
+  vars:
+    # Every answer from a node that was reachable; none (e.g. --limit left the nodes out) keeps the defaults
+    locate_guests_answers: >-
+      {{ groups.proxmox | map('extract', hostvars) | selectattr('locate_guests_resources', 'defined')
+      | map(attribute='locate_guests_resources') | selectattr('stdout', 'defined') | list }}
+    locate_guests_nodes: >-
+      {{ (locate_guests_answers | first).stdout | from_json | items2dict(key_name='vmid', value_name='node')
+      if locate_guests_answers else {} }}
+    locate_guests_node: "{{ locate_guests_nodes[guests[inventory_hostname].vmid] | default('') }}"
+  tasks:
+    # A container that doesn't exist yet, or is on a node missing from all.yml, keeps the default
+    - name: Connect through the node it's on now
+      ansible.builtin.set_fact:
+        ansible_host: "{{ nodes[locate_guests_node].ip }}"
+        locate_guests_done: true
+      when:
+        - not locate_guests_done | default(false)
+        - locate_guests_node in nodes
