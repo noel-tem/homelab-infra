@@ -14,3 +14,9 @@
   run_once: true
   roles:
     - metrics_server
+
+# After InfluxDB is set up; every node reports its own disks, shown in Grafana's "Disk health and capacity"
+- name: Report disk health and capacity
+  hosts: proxmox
+  roles:
+    - disk_health

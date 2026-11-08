@@ -1,0 +1,99 @@
+####################################################################
+# WARNING: These are designed specifically for Ansible tests       #
+# and should not be used as examples of how to write Ansible roles #
+####################################################################
+
+# Copyright (c) 2023, Sergei Antipov <greendayonfire at gmail.com>
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+- name: Proxmox VE virtual machines templates management
+  tags: ['template']
+  environment: "{{ environment_auth_vars }}"
+  vars:
+    filename: /tmp/dummy.iso
+
+  block:
+    - name: Create dummy ISO file
+      ansible.builtin.command:
+        cmd: 'truncate -s 300M {{ filename }}'
+
+    - name: Delete requests_toolbelt module if it is installed
+      ansible.builtin.pip:
+        name: requests_toolbelt
+        state: absent
+
+    - name: Install latest proxmoxer
+      ansible.builtin.pip:
+        name: proxmoxer
+        state: latest
+
+    - name: Upload ISO as template to Proxmox VE cluster should fail
+      proxmox_template:
+        node: '{{ node }}'
+        src: '{{ filename }}'
+        content_type: iso
+        force: true
+      register: result
+      ignore_errors: true
+
+    - assert:
+        that:
+          - result is failed
+          - '"requests_toolbelt" in result.msg'
+          - '"upload files larger than 256MB" in result.msg'
+
+    - name: Make smaller dummy file
+      ansible.builtin.command:
+        cmd: 'truncate -s 128M {{ filename }}'
+
+    - name: Upload ISO as template to Proxmox VE cluster should be successful
+      proxmox_template:
+        node: '{{ node }}'
+        src: '{{ filename }}'
+        content_type: iso
+        force: true
+      register: result
+
+    - assert:
+        that:
+          - result is changed
+          - result is success
+          - result.msg is match('template with volid=local:iso/dummy.iso uploaded')
+
+    - name: Install requests_toolbelt
+      ansible.builtin.pip:
+        name: requests_toolbelt
+        state: present
+
+    - name: Make big dummy file
+      ansible.builtin.command:
+        cmd: 'truncate -s 300M {{ filename }}'
+
+    - name: Upload ISO as template to Proxmox VE cluster should be successful
+      proxmox_template:
+        node: '{{ node }}'
+        src: '{{ filename }}'
+        content_type: iso
+        force: true
+      register: result
+
+    - assert:
+        that:
+          - result is changed
+          - result is success
+          - result.msg is match('template with volid=local:iso/dummy.iso uploaded')
+
+  always:
+    - name: Delete ISO file from host
+      ansible.builtin.file:
+        path: '{{ filename }}'
+        state: absent
+
+    - name: Delete uploaded ISO from Proxmox
+      proxmox_template:
+        node: '{{ node }}'
+        template: dummy.iso
+        content_type: iso
+        state: absent
+      ignore_errors: true
