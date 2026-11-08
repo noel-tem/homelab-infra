@@ -1,4 +1,0 @@
-- name: Restart Telegraf
-  ansible.builtin.systemd_service:
-    name: telegraf
-    state: restarted

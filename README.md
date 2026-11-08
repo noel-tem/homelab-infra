@@ -39,10 +39,6 @@ There's one of each. Pi-hole's upstreams and blocklists come from [`ansible/role
 
 Every container, the tailnet's split DNS and the router's DHCP (set on the router) use `192.168.0.10`. Until 2026-11 there was a second Pi-hole and Caddy on another node, with keepalived moving a VIP between the Caddys; they're replaced by Proxmox HA, which restarts Pi-hole and Caddy on another node when theirs goes down. **Until HA is set up, losing `live-laugh-homelab` takes DNS and the `*.home.arpa` names down with it.**
 
-### Disk health
-
-Every Proxmox node runs Telegraf (`disk_health` role, run from `playbooks/metrics.yml`), which writes SMART status, temperature and failure-predicting attributes, the usage of every mounted filesystem and ZFS pool usage/health to the same InfluxDB bucket as the Proxmox metrics. Grafana's "Disk health and capacity" dashboard shows them. There are no alerts yet; the dashboard is only checked by looking.
-
 ### Remote access
 
 Every Proxmox node runs Tailscale as a subnet router advertising `192.168.0.0/24`, so the tailnet fails over if one node is down. Tofu mints an auth key per node and approves each route; Ansible installs Tailscale and joins the nodes. Nothing inside the containers runs Tailscale.
@@ -63,7 +59,7 @@ ansible/
   playbooks/        one per host/service
   roles/            caddy, gitea, jellyfin, media_share, media_mount, gpu_passthrough, tun_passthrough, arr,
                     pihole, pihole_dns, subnet_router,
-                    uptime_kuma, influxdb, grafana, metrics_server, disk_health, auto_updates, disk_storage, pbs, pbs_storage,
+                    uptime_kuma, influxdb, grafana, metrics_server, auto_updates, disk_storage, pbs, pbs_storage,
                     opentofu, ansible_tools, gitea_runner, claude_code, deployer
   group_vars/       shared vars (guest IDs/IPs, domain, proxied services)
 .gitea/workflows/   CI: check (lint + validate on PRs) and claude (@claude on issues)
