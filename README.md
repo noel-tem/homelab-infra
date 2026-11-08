@@ -16,14 +16,14 @@ Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` 
 | Caddy | 105 | http://192.168.0.21 | — | Reverse proxy for every `*.home.arpa` name; normally holds the VIP `192.168.0.28` |
 | Caddy 2 | 111 | http://192.168.0.27 | — | On `live-laugh-tomcruise`; failover for Caddy, takes over the VIP when it's down |
 | Gitea | 106 | http://192.168.0.22:3000 | http://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
-| Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | On `live-laugh-tomcruise`; iGPU passthrough; the media on the 2 TB HDD (shared with arr), also over SMB at `\\192.168.0.23\media` |
+| Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | On `live-laugh-nicolekidman`; iGPU passthrough; the media on its mergerfs pool (shared with arr), also over SMB at `\\192.168.0.23\media` |
 | Uptime Kuma | 108 | http://192.168.0.24:3001 | http://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
 | Metrics | 109 | http://192.168.0.25:3000 | http://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
 | Proxmox Backup Server | 110 | https://192.168.0.26:8007 | http://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
 | Proxmox Backup Server 2 | 115 | https://192.168.0.32:8007 | http://pbs2.home.arpa | On `live-laugh-nicolekidman`; a second copy of every backup, on its 1 TB HDD (see [Backups](#backups)) |
 | Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
 | Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
-| Arr | 114 | 192.168.0.31 | http://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, seerr | On `live-laugh-tomcruise`; Docker Compose stack, qBittorrent behind Surfshark (see [Media](#media)) |
+| Arr | 114 | 192.168.0.31 | http://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, seerr | On `live-laugh-nicolekidman`; Docker Compose stack, qBittorrent behind Surfshark (see [Media](#media)) |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -154,8 +154,6 @@ MEDIA_SHARE_PASSWORD=... ansible-playbook playbooks/jellyfin.yml
 After that, change it with `smbpasswd media` inside the container. The share is `\\192.168.0.23\media`.
 
 ### Media
-
-**Right now the media is offline.** Jellyfin and arr are still on `live-laugh-tomcruise` and switched off (`running: false`), until they're restored onto `live-laugh-nicolekidman`, where the disks now are.
 
 Jellyfin and the arr stack are separate containers on `media_node` (`live-laugh-nicolekidman`) that share one folder. Its three 2 TB HDDs are pooled into one 5.4 TB filesystem at `/mnt/pool` with [mergerfs](https://trapexit.github.io/mergerfs/), and `/mnt/pool/media` is bind-mounted into both at `/mnt/media` ([`roles/media_mount`](ansible/roles/media_mount/)). Downloads and the library are on the same filesystem, so Sonarr and Radarr import with hardlinks instead of copies:
 
