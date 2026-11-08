@@ -1,6 +1,6 @@
 # homelab-infra
 
-Infrastructure for my home Proxmox cluster: `live-laugh-homelab` (192.168.0.50) and `live-laugh-tomcruise` (192.168.0.51), with a QDevice for quorum.
+Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` (192.168.0.50), `live-laugh-tomcruise` (192.168.0.51) and `live-laugh-nicolekidman` (192.168.0.52). Any one of them can be down without the cluster losing quorum.
 
 - **OpenTofu** creates the guests (`stacks/homelab/`) and owns the Tailscale key, route approval and split DNS (`stacks/tailnet/`).
 - **Ansible** (`ansible/`) configures everything inside them, plus the Proxmox nodes themselves.

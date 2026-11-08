@@ -6,6 +6,8 @@ home_subnet: 192.168.0.0/24
 nodes:
   live-laugh-homelab: { ip: 192.168.0.50 }
   live-laugh-tomcruise: { ip: 192.168.0.51 }
+  # i7-6700K with an iGPU, root on ZFS; holds the HDDs
+  live-laugh-nicolekidman: { ip: 192.168.0.52 }
 # The one place guest IDs, addresses and nodes live; Tofu reads this file too (stacks/homelab/locals.tf)
 # node is where Tofu creates the guest; moving it later doesn't need a change here, since Tofu ignores the
 # node after creation and Ansible connects through whichever node it's on (playbooks/locate-guests.yml)
