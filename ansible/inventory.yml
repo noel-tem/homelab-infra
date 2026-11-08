@@ -9,6 +9,7 @@ all:
       hosts:
         live-laugh-homelab:
         live-laugh-tomcruise:
+        live-laugh-nicolekidman:
     # Reached through the guest's node with lxc-attach (connection_plugins/pct.py), so containers don't need sshd
     lxc:
       vars:
