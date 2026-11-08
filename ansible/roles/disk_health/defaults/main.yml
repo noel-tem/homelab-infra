@@ -1,0 +1,3 @@
+# Filesystems the capacity check skips; everything else mounted on the node (root, the HDDs, ZFS datasets) is reported
+disk_health_ignore_fs: [tmpfs, devtmpfs, overlay, squashfs, fuse, fuse.lxcfs, fuse.mergerfs, proc, sysfs, cgroup2, autofs, efivarfs]
+disk_health_interval: 5m
