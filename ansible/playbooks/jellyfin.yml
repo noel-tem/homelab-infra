@@ -1,3 +1,5 @@
+- ansible.builtin.import_playbook: locate-guests.yml
+
 # First, so Jellyfin's setup sees the real media directory rather than an empty one under the mount point
 - name: Give Jellyfin the media
   hosts: proxmox

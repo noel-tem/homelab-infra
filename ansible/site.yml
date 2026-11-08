@@ -1,4 +1,6 @@
 - ansible.builtin.import_playbook: playbooks/proxmox-host.yml
+# Before anything connects to a container, so each is reached through the node it's on now
+- ansible.builtin.import_playbook: playbooks/locate-guests.yml
 
 - name: Bootstrap Python in containers
   hosts: lxc

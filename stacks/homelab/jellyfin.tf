@@ -1,7 +1,7 @@
 # Ansible installs and runs Jellyfin (ansible/roles/jellyfin)
 locals {
   # false shuts the container down (and keeps it down across host reboots); data is kept
-  jellyfin_running = true
+  jellyfin_running = false
 }
 
 module "jellyfin" {

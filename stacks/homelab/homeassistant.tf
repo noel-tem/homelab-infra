@@ -97,8 +97,9 @@ resource "proxmox_virtual_environment_vm" "homeassistant" {
   serial_device {
     device = "socket"
   }
-  # The guest agent reports HAOS's internal interfaces here, and their MACs change
   lifecycle {
-    ignore_changes = [mac_addresses]
+    # The guest agent reports HAOS's internal interfaces here, and their MACs change
+    # With migrate = false a node change rebuilds the VM, so HA failover would plan to destroy it; node_name only applies at creation
+    ignore_changes = [mac_addresses, node_name]
   }
 }

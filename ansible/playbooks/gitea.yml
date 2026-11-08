@@ -1,3 +1,5 @@
+- ansible.builtin.import_playbook: locate-guests.yml
+
 - name: Configure Gitea
   hosts: gitea
   roles:

@@ -1,3 +1,5 @@
+- ansible.builtin.import_playbook: locate-guests.yml
+
 # First, so the stack starts with the media and the tun device already in place
 - name: Give arr the media and a tun device
   hosts: proxmox
