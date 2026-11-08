@@ -10,11 +10,9 @@ Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` 
 | Guest | ID | Direct address | Name | Notes |
 |---|---|---|---|---|
 | Pi-hole | 100 | http://192.168.0.10/admin | http://pihole.home.arpa | LAN DNS (port 53); holds the `*.home.arpa` records |
-| Pi-hole 2 | 101 | http://192.168.0.11/admin | http://pihole2.home.arpa | On `live-laugh-tomcruise`; failover for Pi-hole, configured identically by Ansible |
 | Home Assistant OS | 102 | http://192.168.0.83:8123 | http://homeassistant.home.arpa | VM from community-scripts, imported into Tofu |
 | Mosquitto | 104 | `mqtt://192.168.0.20:1883` | — | MQTT broker, no Ansible config yet |
-| Caddy | 105 | http://192.168.0.21 | — | Reverse proxy for every `*.home.arpa` name; normally holds the VIP `192.168.0.28` |
-| Caddy 2 | 111 | http://192.168.0.27 | — | On `live-laugh-tomcruise`; failover for Caddy, takes over the VIP when it's down |
+| Caddy | 105 | http://192.168.0.21 | — | Reverse proxy for every `*.home.arpa` name |
 | Gitea | 106 | http://192.168.0.22:3000 | http://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
 | Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | On `live-laugh-nicolekidman`; iGPU passthrough; the media on its mergerfs pool (shared with arr), also over SMB at `\\192.168.0.23\media` |
 | Uptime Kuma | 108 | http://192.168.0.24:3001 | http://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
@@ -31,23 +29,15 @@ Everything except Home Assistant is an unprivileged Debian 13 LXC built from [`m
 
 ### How names resolve
 
-Pi-hole points every `<name>.home.arpa` at Caddy's VIP, and Caddy proxies it to the right `ip:port`. Both are driven by `proxied_services` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), so adding a service there is all it takes to give it a name.
+Pi-hole points every `<name>.home.arpa` at Caddy (`192.168.0.21`), and Caddy proxies it to the right `ip:port`. Both are driven by `proxied_services` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), so adding a service there is all it takes to give it a name.
 
 Note: the Pi-hole role overwrites the whole local DNS list, so records added in the Pi-hole web UI get replaced.
 
-### DNS failover
+### Pi-hole and Caddy
 
-There are two Pi-holes, one per node, and Ansible keeps them identical: upstreams and blocklists come from [`ansible/roles/pihole/defaults/main.yml`](ansible/roles/pihole/defaults/main.yml), local records from `proxied_services`. Change blocklists there, not in either web UI, since the next run replaces them. Allowlists and anything else set in the UI only exist on the Pi-hole you set them on.
+There's one of each. Pi-hole's upstreams and blocklists come from [`ansible/roles/pihole/defaults/main.yml`](ansible/roles/pihole/defaults/main.yml) and its local records from `proxied_services`; change blocklists there, not in the web UI, since the next run replaces them. Allowlists and anything else set in the UI are kept.
 
-Every container and the tailnet's split DNS list both Pi-holes. LAN clients only get both if the router's DHCP hands out `192.168.0.10` and `192.168.0.11` as DNS servers; that's set on the router, not here.
-
-Both Pi-holes point the `*.home.arpa` names at Caddy, so with either node down, DNS and the names keep working (see below).
-
-### Proxy failover
-
-There are two Caddys too, one per node, configured identically by Ansible. They share a virtual IP, `caddy_vip` (`192.168.0.28`) in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), which is what the Pi-hole records point at. keepalived ([`ansible/roles/keepalived`](ansible/roles/keepalived/)) gives the VIP to `caddy` and moves it to `caddy2` within a few seconds if that container, its node or the Caddy service goes down. It moves back once `caddy` recovers.
-
-The proxied services themselves aren't duplicated: with `live-laugh-tomcruise` down, `gitea.home.arpa` still resolves and reaches a Caddy, but Gitea isn't there to answer.
+Every container, the tailnet's split DNS and the router's DHCP (set on the router) use `192.168.0.10`. Until 2026-11 there was a second Pi-hole and Caddy on another node, with keepalived moving a VIP between the Caddys; they're replaced by Proxmox HA, which restarts Pi-hole and Caddy on another node when theirs goes down. **Until HA is set up, losing `live-laugh-homelab` takes DNS and the `*.home.arpa` names down with it.**
 
 ### Remote access
 
@@ -67,7 +57,7 @@ ansible/
   site.yml          runs everything
   connection_plugins/  pct: the faster container connection
   playbooks/        one per host/service
-  roles/            caddy, keepalived, gitea, jellyfin, media_share, media_mount, gpu_passthrough, tun_passthrough, arr,
+  roles/            caddy, gitea, jellyfin, media_share, media_mount, gpu_passthrough, tun_passthrough, arr,
                     pihole, pihole_dns, subnet_router,
                     uptime_kuma, influxdb, grafana, metrics_server, auto_updates, disk_storage, pbs, pbs_storage,
                     opentofu, ansible_tools, gitea_runner, claude_code, deployer
@@ -265,7 +255,7 @@ Both of Claude's secrets are readable by any workflow on any branch, which is fi
 
 ## Gotchas
 
-- **Containers use the Pi-holes for DNS** (`dns_servers = local.pihole_ips`) because the host's `resolv.conf` points at Tailscale's resolver, which containers can't reach.
+- **Containers use Pi-hole for DNS** (`dns_servers = local.pihole_ips`) because the host's `resolv.conf` points at Tailscale's resolver, which containers can't reach.
 - **Rejoining Tailscale**: the auth key is single-use and expires an hour after creation. Mint a fresh one with `tofu -chdir=stacks/tailnet apply -replace='tailscale_tailnet_key.subnet_router["<node>"]'`, then rerun Ansible.
 - **Tofu ignores a guest's node, and a container's root disk storage, once they exist.** Both force a rebuild in the provider when they change, so a migrated or failed-over guest, or a container disk moved to other storage, would otherwise plan a destroy. Move guests with `pct migrate`/`qm migrate` or HA, and container disks with `pct move-volume`, not by editing the config. Home Assistant's disks aren't ignored: after `qm disk move`, update their `datastore_id` in `homeassistant.tf` and check the plan is clean.
 - **GPU and tun passthrough and the media bind mounts are done by Ansible, not Tofu**: they need `root@pam`, and Tofu uses an API token. The module ignores `device_passthrough` and `mount_point` changes for the same reason.
