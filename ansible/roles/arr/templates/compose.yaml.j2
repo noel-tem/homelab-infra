@@ -44,6 +44,17 @@ services:
       - {{ media_path }}:/data
     restart: unless-stopped
 
+  # Usenet downloads over SSL straight to the provider, so it stays off the VPN; 8085 outside, since gluetun has 8080
+  sabnzbd:
+    image: {{ arr_images.sabnzbd }}
+    environment: *linuxserver-env
+    ports:
+      - 8085:8080
+    volumes:
+      - {{ arr_config }}/sabnzbd:/config
+      - {{ media_path }}:/data
+    restart: unless-stopped
+
   prowlarr:
     image: {{ arr_images.prowlarr }}
     environment: *linuxserver-env
@@ -53,7 +64,7 @@ services:
       - {{ arr_config }}/prowlarr:/config
     restart: unless-stopped
 
-  # Sonarr, Radarr and qBittorrent all see the media at /data, so download paths match without remote path mappings
+  # Sonarr, Radarr, qBittorrent and SABnzbd all see the media at /data, so download paths match without remote path mappings
   sonarr:
     image: {{ arr_images.sonarr }}
     environment: *linuxserver-env

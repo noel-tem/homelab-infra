@@ -55,6 +55,7 @@ proxied_services:
   prowlarr: "{{ guests.arr.ip }}:9696"
   bazarr: "{{ guests.arr.ip }}:6767"
   qbit: "{{ guests.arr.ip }}:8080"
+  sabnzbd: "{{ guests.arr.ip }}:8085"
   seerr: "{{ guests.arr.ip }}:5055"
   # PBS only serves HTTPS
   pbs: "https://{{ guests.pbs.ip }}:8007"
@@ -89,6 +90,10 @@ media_dirs:
   - downloads/tv
   - downloads/movies
   - downloads/anime
+  # SABnzbd works in incomplete and files finished jobs under complete/<category>
+  - downloads/usenet
+  - downloads/usenet/incomplete
+  - downloads/usenet/complete
   - movies
   - shows
   # Its own library and category, so anime gets its own Jellyfin library and Sonarr's anime settings
