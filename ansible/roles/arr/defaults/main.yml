@@ -17,6 +17,7 @@ arr_seerr_uid: 1000
 arr_images:
   gluetun: qmcgaw/gluetun:v3
   qbittorrent: lscr.io/linuxserver/qbittorrent:latest
+  sabnzbd: lscr.io/linuxserver/sabnzbd:latest
   prowlarr: lscr.io/linuxserver/prowlarr:latest
   sonarr: lscr.io/linuxserver/sonarr:latest
   radarr: lscr.io/linuxserver/radarr:latest
