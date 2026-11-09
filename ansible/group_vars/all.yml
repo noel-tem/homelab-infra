@@ -1,4 +1,6 @@
 dns_domain: home.arpa
+# Nodes whose CPUs clock down when idle (roles/cpu_governor); the rest stay on Proxmox's default, performance
+cpu_governor_nodes: [live-laugh-nicolekidman]
 # Root's key in every container; Tofu reads it from here so the deployer (which has its own key) builds identical containers
 ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJm21vYZqBMhgV4jXQ1WQcaCt15tPdzDx8ElhJoigcgs noel@wsl
 home_subnet: 192.168.0.0/24

@@ -1,0 +1,8 @@
+# A oneshot that's already run won't run again on start, so a changed governor needs a restart to apply
+- name: Restart cpu-governor
+  ansible.builtin.systemd_service:
+    name: cpu-governor
+    state: restarted
+    daemon_reload: true
+  # Only notified when the unit changed, which on a dry run means it isn't written
+  when: not ansible_check_mode
