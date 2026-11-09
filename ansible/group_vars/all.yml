@@ -14,13 +14,15 @@ nodes:
 # node is where Tofu creates the guest; moving it later doesn't need a change here, since Tofu ignores the
 # node after creation and Ansible connects through whichever node it's on (playbooks/locate-guests.yml)
 # running: false switches a guest off: Tofu stops it and keeps it down across reboots, and Ansible skips it
+# failover puts a guest under Proxmox HA: it's replicated to that node and restarted there if its own node goes down,
+# then moved back once it returns (stacks/homelab/ha.tf, README: High availability)
 guests:
-  pihole: { vmid: 100, ip: 192.168.0.10, node: live-laugh-homelab }
+  pihole: { vmid: 100, ip: 192.168.0.10, node: live-laugh-homelab, failover: live-laugh-tomcruise }
   # DHCP; Tofu doesn't set this one, it's only here for proxied_services
-  homeassistant: { vmid: 102, ip: 192.168.0.83, node: live-laugh-homelab }
+  homeassistant: { vmid: 102, ip: 192.168.0.83, node: live-laugh-homelab, failover: live-laugh-tomcruise }
   mosquitto: { vmid: 104, ip: 192.168.0.20, node: live-laugh-homelab }
-  caddy: { vmid: 105, ip: 192.168.0.21, node: live-laugh-homelab }
-  gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise }
+  caddy: { vmid: 105, ip: 192.168.0.21, node: live-laugh-homelab, failover: live-laugh-tomcruise }
+  gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise, failover: live-laugh-homelab }
   # Needs a node with an iGPU at /dev/dri/renderD128, and the media is a bind mount from media_node, so it has to stay there
   jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-nicolekidman }
   uptimekuma: { vmid: 108, ip: 192.168.0.24, node: live-laugh-homelab }
