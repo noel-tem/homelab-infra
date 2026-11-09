@@ -21,7 +21,7 @@ Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` 
 | Proxmox Backup Server 2 | 115 | https://192.168.0.32:8007 | https://pbs2.home.arpa | On `live-laugh-nicolekidman`; a second copy of every backup, on its 1 TB HDD (see [Backups](#backups)) |
 | Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
 | Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
-| Arr | 114 | 192.168.0.31 | https://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, sabnzbd, seerr | On `live-laugh-nicolekidman`; Docker Compose stack, qBittorrent behind Surfshark, SABnzbd for Usenet (see [Media](#media)) |
+| Arr | 114 | 192.168.0.31 | http://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, sabnzbd, seerr | On `live-laugh-nicolekidman`; Docker Compose stack, qBittorrent behind Surfshark, SABnzbd for Usenet (see [Media](#media)) |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -145,8 +145,8 @@ export INFLUXDB_PASSWORD=...                # InfluxDB admin; only read when Inf
 export PBS_ADMIN_PASSWORD=...               # admin@pbs on PBS; only read when that user is created
 export PIHOLE_PASSWORD=...                  # Pi-hole web UI; only read when Ansible installs a new Pi-hole
 export DEPLOYER_GITEA_TOKEN=...             # the deployer bot's Gitea token (see CI)
-export SURFSHARK_WIREGUARD_PRIVATE_KEY=...  # Surfshark WireGuard key (see Media); only read when arr is first set up
-export SURFSHARK_WIREGUARD_ADDRESS=...      # the Address line of a Surfshark WireGuard config, e.g. 10.14.0.2/16
+export SURFSHARK_WIREGUARD_PRIVATE_KEY=...  # VPN WireGuard private key (see Media); only read when arr is first set up
+export SURFSHARK_WIREGUARD_ADDRESS=...      # the Address line of the VPN's WireGuard config, e.g. 10.14.0.2/16
 ```
 
 `playbooks/ci.yml` copies all of these except the Tailscale ones to the deployer. It stops if any is unset, except the ones that are only read on first setup (`INFLUXDB_PASSWORD`, `PBS_ADMIN_PASSWORD`, `PIHOLE_PASSWORD` and the two `SURFSHARK_` ones), which it copies only if set.
@@ -208,16 +208,16 @@ Everything is owned by the `library` group (gid 2000, set in `group_vars/all.yml
 
 The arr container runs [Docker Compose](ansible/roles/arr/templates/compose.yaml.j2) in `/opt/arr`, with each app's config in `/var/lib/arr/<app>` (backed up by PBS). Inside the stack, apps reach each other by service name: in Sonarr and Radarr, add qBittorrent as host `gluetun`, port `8080`, and use `/data/...` paths (qBittorrent, SABnzbd, Sonarr, Radarr and Bazarr all see the media at `/data`). Point Prowlarr at `http://sonarr:8989` and `http://radarr:7878`, and Seerr at Jellyfin on `http://192.168.0.23:8096`. For indexers behind Cloudflare, add FlareSolverr in Prowlarr under Settings → Indexers → Indexer Proxies (host `http://flaresolverr:8191`, with a tag such as `flaresolverr`), then give those indexers the same tag. qBittorrent prints a temporary web UI password on first start: `docker compose -f /opt/arr/compose.yaml logs qbittorrent`.
 
-SABnzbd handles Usenet. It's published on port 8085, but inside the stack it's `sabnzbd`, port `8080`. It doesn't go through the VPN: it talks to the provider over SSL, and there are no peers to see your IP. To set it up:
+SABnzbd is published on port 8085, but inside the stack it's `sabnzbd`, port `8080`. It doesn't go through the VPN; it connects straight to its server over SSL. To set it up:
 
-- Run the first-run wizard at http://192.168.0.31:8085. The provider is UsenetServer: host `news.usenetserver.com`, port `563`, SSL on, your UsenetServer login, and connections up to your plan's limit (20–30 is plenty).
+- Run the first-run wizard at http://192.168.0.31:8085 and enter your server's host, port (usually `563` with SSL on), login, and connections up to your plan's limit.
 - Under Config → Folders, set the temporary folder to `/data/downloads/usenet/incomplete` and the completed folder to `/data/downloads/usenet/complete`.
 - Under Config → Categories, add `tv`, `movies` and `anime`.
 - Under Config → Special, add `sabnzbd, sabnzbd.home.arpa` to `host_whitelist`, or it refuses Caddy and the other apps.
 - In Sonarr and Radarr, add SABnzbd as a download client: host `sabnzbd`, port `8080`, the API key from Config → General, and the matching category.
-- The indexer is NZBFinder. Add it in Prowlarr with its API key, and Prowlarr syncs it to Sonarr and Radarr.
+- Add your indexers in Prowlarr with their API keys, and Prowlarr syncs them to Sonarr and Radarr.
 
-qBittorrent uses gluetun's network, so torrent traffic only leaves through Surfshark's WireGuard tunnel, and stops if the tunnel is down. Surfshark doesn't forward ports, so peers can't connect in. Downloads work, but seeding is weak. To get the key, in the Surfshark dashboard go to VPN → Manual setup → Router → WireGuard, generate a key pair, and download a config for any location. The private key goes in `.env` as `SURFSHARK_WIREGUARD_PRIVATE_KEY` and the config's `Address` as `SURFSHARK_WIREGUARD_ADDRESS`. The first `playbooks/arr.yml` run writes them to `/opt/arr/vpn.env`; after that, edit that file and rerun the playbook. The server country is `arr_vpn_countries` in [`roles/arr/defaults/main.yml`](ansible/roles/arr/defaults/main.yml).
+qBittorrent uses gluetun's network, so its traffic only leaves through the VPN's WireGuard tunnel, and stops if the tunnel is down. The VPN doesn't forward ports, so nothing can connect in. To get the key, generate a WireGuard key pair in your VPN provider's manual-setup page and download a config for any location. The private key goes in `.env` as `SURFSHARK_WIREGUARD_PRIVATE_KEY` and the config's `Address` as `SURFSHARK_WIREGUARD_ADDRESS`. The first `playbooks/arr.yml` run writes them to `/opt/arr/vpn.env`; after that, edit that file and rerun the playbook. The server country is `arr_vpn_countries` in [`roles/arr/defaults/main.yml`](ansible/roles/arr/defaults/main.yml).
 
 Images use `latest` tags and aren't updated automatically. To update, run `docker compose pull && docker compose up -d` in `/opt/arr`.
 
