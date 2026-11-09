@@ -1,11 +1,11 @@
 # Written by Ansible (roles/cpu_governor)
 [Unit]
-Description=Set the CPU frequency governor to {{ cpu_governor }}
+Description=Set the CPU frequency governor to {{ cpu_governor_mode }}
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo {{ cpu_governor }} > "$g"; done'
+ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo {{ cpu_governor_mode }} > "$g"; done'
 
 [Install]
 WantedBy=multi-user.target

@@ -37,7 +37,29 @@ Note: the Pi-hole role overwrites the whole local DNS list, so records added in 
 
 There's one of each. Pi-hole's upstreams and blocklists come from [`ansible/roles/pihole/defaults/main.yml`](ansible/roles/pihole/defaults/main.yml) and its local records from `proxied_services`; change blocklists there, not in the web UI, since the next run replaces them. Allowlists and anything else set in the UI are kept.
 
-Every container, the tailnet's split DNS and the router's DHCP (set on the router) use `192.168.0.10`. Until 2026-11 there was a second Pi-hole and Caddy on another node, with keepalived moving a VIP between the Caddys; they're replaced by Proxmox HA, which restarts Pi-hole and Caddy on another node when theirs goes down. **Until HA is set up, losing `live-laugh-homelab` takes DNS and the `*.home.arpa` names down with it.**
+Every container, the tailnet's split DNS and the router's DHCP (set on the router) use `192.168.0.10`. Until 2026-11 there was a second Pi-hole and Caddy on another node, with keepalived moving a VIP between the Caddys; Proxmox HA replaced them (see below).
+
+### High availability
+
+Pi-hole, Caddy, Home Assistant and Gitea are under Proxmox HA. Each has a `failover` node next to its `node` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), and [`stacks/homelab/ha.tf`](stacks/homelab/ha.tf) turns that into three things:
+
+- A replication job that copies its disks to the failover node: every 2 minutes for Gitea, 5 for Pi-hole and Home Assistant, 15 for Caddy, at up to 40 MB/s so the 1 Gb link stays free for the cluster.
+- An HA resource, so if its node goes down HA restarts it on the failover node, and moves it back once the node returns.
+- A strict node rule: its own node first, then the failover node, never `live-laugh-nicolekidman`, which has no copy of its disks.
+
+| Guest | Runs on | Fails over to |
+|---|---|---|
+| Pi-hole, Caddy, Home Assistant | `live-laugh-homelab` | `live-laugh-tomcruise` |
+| Gitea | `live-laugh-tomcruise` | `live-laugh-homelab` |
+
+What to expect:
+
+- **A failover takes a few minutes, and loses what changed since the last sync.** HA waits about a minute to be sure the node is gone, then starts the guest from its last replicated copy. Pi-hole's query log or a push to Gitea in that window is gone.
+- **Nodes running HA guests reboot themselves if they lose the cluster.** A node that can't reach the other two for about a minute assumes it's been cut off and restarts, so its guests can't run in two places. With every node on one switch, a long switch outage reboots `live-laugh-homelab` and `live-laugh-tomcruise`.
+- **Before rebooting or shutting down a node on purpose**, run `ha-manager crm-command node-maintenance enable <node>`; HA moves its guests away first, live for Home Assistant. Run the same with `disable` afterwards, and they move back.
+- **Stop or start an HA guest with `ha-manager set ct:<id> --state stopped`** (or `started`), not `pct stop` or the `<name>_running` local in its `.tf` file: HA restarts anything it's told should be running.
+- When a guest moves, Proxmox points its replication job back at the other node by itself, so Tofu ignores the job's target after creating it, the same way it ignores a guest's node.
+
 
 ### Remote access
 
