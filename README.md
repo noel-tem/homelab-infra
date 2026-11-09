@@ -301,7 +301,7 @@ One-time setup in Gitea, before `playbooks/ci.yml`:
 2. Tokens: `deployer` gets `write:repository` (for commit statuses), which goes in `.env` as `DEPLOYER_GITEA_TOKEN`. `claude` gets `write:repository` + `write:issue`, which goes in the repo's Actions secrets as `CLAUDE_GITEA_TOKEN`.
 3. Run `claude setup-token` and add the result to the repo's Actions secrets as `CLAUDE_CODE_OAUTH_TOKEN`.
 4. Branch protection on `main`, which is the approval gate:
-   - **Disable push** for everyone, you included, so every change reaches `main` through a PR.
+   - **Disable push** for everyone, you excluded, so every change reaches `main` through a PR.
    - **Merge whitelist: `noeltem` only.** Your merge is the approval. Leave required approvals at 0, since Gitea doesn't let you approve your own PRs, so a 1 would block them.
    - **Apply to administrators**, so the owner account can't bypass it either.
    - Optionally require the `Check` status, once it has run once.
