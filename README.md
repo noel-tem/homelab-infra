@@ -9,19 +9,19 @@ Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` 
 
 | Guest | ID | Direct address | Name | Notes |
 |---|---|---|---|---|
-| Pi-hole | 100 | http://192.168.0.10/admin | http://pihole.home.arpa | LAN DNS (port 53); holds the `*.home.arpa` records |
-| Home Assistant OS | 102 | http://192.168.0.83:8123 | http://homeassistant.home.arpa | VM from community-scripts, imported into Tofu |
+| Pi-hole | 100 | http://192.168.0.10/admin | https://pihole.home.arpa | LAN DNS (port 53); holds the `*.home.arpa` records |
+| Home Assistant OS | 102 | http://192.168.0.83:8123 | https://homeassistant.home.arpa | VM from community-scripts, imported into Tofu |
 | Mosquitto | 104 | `mqtt://192.168.0.20:1883` | — | MQTT broker, no Ansible config yet |
-| Caddy | 105 | http://192.168.0.21 | — | Reverse proxy for every `*.home.arpa` name |
-| Gitea | 106 | http://192.168.0.22:3000 | http://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
-| Jellyfin | 107 | http://192.168.0.23:8096 | http://jellyfin.home.arpa | On `live-laugh-nicolekidman`; iGPU passthrough; the media on its mergerfs pool (shared with arr), also over SMB at `\\192.168.0.23\media` |
-| Uptime Kuma | 108 | http://192.168.0.24:3001 | http://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
-| Metrics | 109 | http://192.168.0.25:3000 | http://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
-| Proxmox Backup Server | 110 | https://192.168.0.26:8007 | http://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
-| Proxmox Backup Server 2 | 115 | https://192.168.0.32:8007 | http://pbs2.home.arpa | On `live-laugh-nicolekidman`; a second copy of every backup, on its 1 TB HDD (see [Backups](#backups)) |
+| Caddy | 105 | http://192.168.0.21 | — | HTTPS reverse proxy for every `*.home.arpa` name; the direct address serves its root certificate (see [HTTPS](#https)) |
+| Gitea | 106 | http://192.168.0.22:3000 | https://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
+| Jellyfin | 107 | http://192.168.0.23:8096 | https://jellyfin.home.arpa | On `live-laugh-nicolekidman`; iGPU passthrough; the media on its mergerfs pool (shared with arr), also over SMB at `\\192.168.0.23\media` |
+| Uptime Kuma | 108 | http://192.168.0.24:3001 | https://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
+| Metrics | 109 | http://192.168.0.25:3000 | https://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
+| Proxmox Backup Server | 110 | https://192.168.0.26:8007 | https://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
+| Proxmox Backup Server 2 | 115 | https://192.168.0.32:8007 | https://pbs2.home.arpa | On `live-laugh-nicolekidman`; a second copy of every backup, on its 1 TB HDD (see [Backups](#backups)) |
 | Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
 | Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
-| Arr | 114 | 192.168.0.31 | http://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, sabnzbd, seerr | On `live-laugh-nicolekidman`; Docker Compose stack, qBittorrent behind Surfshark, SABnzbd for Usenet (see [Media](#media)) |
+| Arr | 114 | 192.168.0.31 | https://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, sabnzbd, seerr | On `live-laugh-nicolekidman`; Docker Compose stack, qBittorrent behind Surfshark, SABnzbd for Usenet (see [Media](#media)) |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -32,6 +32,19 @@ Everything except Home Assistant is an unprivileged Debian 13 LXC built from [`m
 Pi-hole points every `<name>.home.arpa` at Caddy (`192.168.0.21`), and Caddy proxies it to the right `ip:port`. Both are driven by `proxied_services` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), so adding a service there is all it takes to give it a name.
 
 Note: the Pi-hole role overwrites the whole local DNS list, so records added in the Pi-hole web UI get replaced.
+
+### HTTPS
+
+Caddy serves every name over HTTPS and redirects `http://` to it. No public CA issues certificates for `home.arpa`, so Caddy runs its own CA and signs a certificate for each name. Browsers only trust them once Caddy's root certificate is installed, once per device:
+
+- Download it from http://192.168.0.21 (any path gives you `root.crt`), on the LAN or over Tailscale.
+- **Windows**: open it → Install Certificate → Local Machine → "Trusted Root Certification Authorities".
+- **macOS**: open it in Keychain Access, then set it to "Always Trust".
+- **iOS**: open the link in Safari and install the profile, then turn it on under Settings → General → About → Certificate Trust Settings.
+- **Android**: Settings → Security → Encryption & credentials → Install a certificate → CA certificate.
+- **Linux**: copy it to `/usr/local/share/ca-certificates/caddy.crt` and run `update-ca-certificates`. Firefox has its own store: Settings → Certificates → Import.
+
+The root lasts 10 years. Caddy keeps it in `/var/lib/caddy/.local/share/caddy/pki/authorities/local`, which HA replication and the nightly backups carry along. If the container is rebuilt from scratch rather than restored, Caddy creates a new root, and every device needs the new one.
 
 ### Pi-hole and Caddy
 
