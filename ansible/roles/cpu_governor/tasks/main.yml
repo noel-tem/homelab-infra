@@ -1,0 +1,17 @@
+# The kernel resets the governor on boot, so a unit sets it each time
+- name: Install the governor unit
+  ansible.builtin.template:
+    src: cpu-governor.service.j2
+    dest: /etc/systemd/system/cpu-governor.service
+    mode: "0644"
+  register: cpu_governor_unit
+  notify: Restart cpu-governor
+
+- name: Enable the governor unit
+  ansible.builtin.systemd_service:
+    name: cpu-governor
+    enabled: true
+    state: started
+    daemon_reload: true
+  # The unit isn't written yet on a first dry run
+  when: not (ansible_check_mode and cpu_governor_unit.changed)
