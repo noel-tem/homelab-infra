@@ -45,12 +45,15 @@ Pi-hole, Caddy, Home Assistant and Gitea are under Proxmox HA. Each has a `failo
 
 - A replication job that copies its disks to the failover node: every 2 minutes for Gitea, 5 for Pi-hole and Home Assistant, 15 for Caddy, at up to 40 MB/s so the 1 Gb link stays free for the cluster.
 - An HA resource, so if its node goes down HA restarts it on the failover node, and moves it back once the node returns.
-- A strict node rule: its own node first, then the failover node, never `live-laugh-nicolekidman`, which has no copy of its disks.
+- A strict node rule: its own node first, then the failover node, never the third node, which has no copy of its disks.
 
 | Guest | Runs on | Fails over to |
 |---|---|---|
-| Pi-hole, Caddy, Home Assistant | `live-laugh-homelab` | `live-laugh-tomcruise` |
+| Pi-hole, Caddy | `live-laugh-homelab` | `live-laugh-tomcruise` |
+| Home Assistant | `live-laugh-homelab` | `live-laugh-nicolekidman` |
 | Gitea | `live-laugh-tomcruise` | `live-laugh-homelab` |
+
+Home Assistant fails over to `live-laugh-nicolekidman` because it's a VM, which HA moves live when it fails back or a node goes into maintenance, and a live move between `live-laugh-homelab`'s Intel CPU and `live-laugh-tomcruise`'s AMD one froze it for six minutes. Both other nodes are Intel. While it's running there, `live-laugh-nicolekidman` fences itself like the others if it loses the cluster.
 
 What to expect:
 

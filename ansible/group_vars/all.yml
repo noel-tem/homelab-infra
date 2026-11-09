@@ -19,7 +19,9 @@ nodes:
 guests:
   pihole: { vmid: 100, ip: 192.168.0.10, node: live-laugh-homelab, failover: live-laugh-tomcruise }
   # DHCP; Tofu doesn't set this one, it's only here for proxied_services
-  homeassistant: { vmid: 102, ip: 192.168.0.83, node: live-laugh-homelab, failover: live-laugh-tomcruise }
+  # Fails over to nicolekidman, not tomcruise: a live migration between Intel (homelab) and AMD (tomcruise) froze
+  # it for minutes on failback, and nicolekidman is Intel too
+  homeassistant: { vmid: 102, ip: 192.168.0.83, node: live-laugh-homelab, failover: live-laugh-nicolekidman }
   mosquitto: { vmid: 104, ip: 192.168.0.20, node: live-laugh-homelab }
   caddy: { vmid: 105, ip: 192.168.0.21, node: live-laugh-homelab, failover: live-laugh-tomcruise }
   gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise, failover: live-laugh-homelab }
