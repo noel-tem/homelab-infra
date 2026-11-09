@@ -1,9 +1,22 @@
-{# http:// prefix keeps Caddy from trying to get certificates #}
-{% for name, upstream in caddy_proxied_services | dictsort %}
-{% if not loop.first %}
+{
+	# Certificates come from Caddy's own CA, since no public CA issues them for home.arpa.
+	# Devices trust them once Caddy's root certificate is installed (README: HTTPS).
+	local_certs
+	# Caddy runs as the caddy user and can't write the container's trust store; nothing in it needs the root
+	skip_install_trust
+}
 
-{% endif %}
-http://{{ name }}.{{ caddy_domain }} {
+# The root certificate, for installing on devices. Only root.crt: its key is in the same folder.
+http://{{ caddy_ip }} {
+	rewrite * /root.crt
+	root * {{ caddy_ca_dir }}
+	header Content-Type application/x-x509-ca-cert
+	file_server
+}
+{# Sites without an http:// prefix get HTTPS, and Caddy redirects their HTTP requests to it #}
+{% for name, upstream in caddy_proxied_services | dictsort %}
+
+{{ name }}.{{ caddy_domain }} {
 {% if upstream is match('https://') %}
 	# The upstream only serves HTTPS, with a self-signed certificate
 	reverse_proxy {{ upstream }} {

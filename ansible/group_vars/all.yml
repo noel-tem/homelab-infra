@@ -42,7 +42,7 @@ guests:
 # The repo CI runs for; the runner registers with this Gitea and the deployer pulls from it
 gitea_url: http://{{ guests.gitea.ip }}:3000
 gitea_repo: noeltem/homelab-infra
-# Each one gets http://<name>.<dns_domain> on Caddy and a Pi-hole record pointing at Caddy
+# Each one gets https://<name>.<dns_domain> on Caddy and a Pi-hole record pointing at Caddy
 proxied_services:
   pihole: "{{ guests.pihole.ip }}:80"
   homeassistant: "{{ guests.homeassistant.ip }}:8123"

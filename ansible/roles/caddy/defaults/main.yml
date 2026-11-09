@@ -1,2 +1,5 @@
 caddy_domain: "{{ dns_domain }}"
 caddy_proxied_services: "{{ proxied_services }}"
+caddy_ip: "{{ guests.caddy.ip }}"
+# Where Caddy keeps its CA (the caddy user's home is /var/lib/caddy); the root is root.crt here
+caddy_ca_dir: /var/lib/caddy/.local/share/caddy/pki/authorities/local

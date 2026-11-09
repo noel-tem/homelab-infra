@@ -1,4 +1,4 @@
-# Reverse proxy so services are reachable at http://<name>.home.arpa without a port
+# Reverse proxy so services are reachable at https://<name>.home.arpa without a port
 # Ansible installs and configures Caddy (ansible/roles/caddy)
 locals {
   # false shuts the container down (and keeps it down across host reboots); data is kept
