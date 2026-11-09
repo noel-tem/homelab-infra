@@ -62,6 +62,17 @@ What to expect:
 - **Before rebooting or shutting down a node on purpose**, run `ha-manager crm-command node-maintenance enable <node>`; HA moves its guests away first, live for Home Assistant. Run the same with `disable` afterwards, and they move back.
 - **Stop or start an HA guest with `ha-manager set ct:<id> --state stopped`** (or `started`), not `pct stop` or the `<name>_running` local in its `.tf` file: HA restarts anything it's told should be running.
 - When a guest moves, Proxmox points its replication job back at the other node by itself, so Tofu ignores the job's target after creating it, the same way it ignores a guest's node.
+- **After a real failover, clean up on the home node once everything is back.** When a node dies, HA can't reverse the replication jobs, since the dead node can't be reached; so when the guests fail back, Proxmox copies their disks in full under new names (`subvol-100-disk-1` instead of `-disk-0`, and so on) and leaves the old volumes behind. Planned moves (maintenance mode, `pct migrate`, `qm migrate`) don't, since the job's target is reachable. To find and remove the leftovers, on the home node:
+
+  ```sh
+  # Volumes no guest's config mentions; each should be a guest's old disk
+  for v in $(zfs list -H -o name -r rpool/data | tail -n +2 | sed 's|rpool/data/||'); do
+    grep -rqs "local-zfs:$v\b" /etc/pve/nodes/*/lxc/ /etc/pve/nodes/*/qemu-server/ || echo "$v"
+  done
+  pvesm free local-zfs:<volume>    # for each one listed
+  ```
+
+  If Home Assistant's disks were renamed, update `path_in_datastore` in `stacks/homelab/homeassistant.tf` to match `qm config 102`.
 
 
 ### Remote access

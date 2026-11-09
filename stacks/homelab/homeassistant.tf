@@ -61,7 +61,8 @@ resource "proxmox_virtual_environment_vm" "homeassistant" {
     sockets      = 1
     type         = "qemu64"
   }
-  # On ZFS since 2026-11; Proxmox renamed the volumes when they moved, so the EFI disk is disk-0 and this one disk-1
+  # Proxmox renames the volumes whenever it copies them in full (the move to ZFS, the failback after the 2026-11
+  # power-pull test), so these follow the VM's config: the EFI disk is disk-2 and this one disk-3
   disk {
     aio               = "io_uring"
     backup            = true
@@ -73,7 +74,7 @@ resource "proxmox_virtual_environment_vm" "homeassistant" {
     import_from       = ""
     interface         = "scsi0"
     iothread          = false
-    path_in_datastore = "vm-102-disk-1"
+    path_in_datastore = "vm-102-disk-3"
     queues            = 0
     replicate         = true
     serial            = ""
