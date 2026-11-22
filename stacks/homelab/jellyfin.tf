@@ -14,7 +14,9 @@ module "jellyfin" {
   start_on_boot    = local.jellyfin_running
   node_name        = local.guests.jellyfin.node
   template_file_id = local.debian_template[local.guests.jellyfin.node]
-  ipv4_address     = "${local.guests.jellyfin.ip}/24"
+  ipv4_address     = "${local.guests.jellyfin.ip}/${local.guest_prefixes.jellyfin}"
+  ipv4_gateway     = local.guest_gateways.jellyfin
+  vlan_id          = local.guest_networks.jellyfin.vlan_id
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = local.pihole_ips
   ssh_public_keys = local.ssh_keys

@@ -14,14 +14,14 @@ Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` 
 | Mosquitto | 104 | `mqtt://10.42.30.20:1883` (iot VLAN) | — | MQTT broker, no Ansible config yet |
 | Caddy | 105 | http://192.168.0.21 | — | HTTPS reverse proxy for every `*.home.arpa` name; the direct address serves its root certificate (see [HTTPS](#https)) |
 | Gitea | 106 | http://192.168.0.22:3000 | https://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
-| Jellyfin | 107 | http://192.168.0.23:8096 | https://jellyfin.home.arpa | On `live-laugh-nicolekidman`; iGPU passthrough; the media on its mergerfs pool (shared with arr), also over SMB at `\\192.168.0.23\media` |
+| Jellyfin | 107 | http://10.42.20.23:8096 (media VLAN) | https://jellyfin.home.arpa | On `live-laugh-nicolekidman`; iGPU passthrough; the media on its mergerfs pool (shared with arr), also over SMB at `\\192.168.0.23\media` |
 | Uptime Kuma | 108 | http://192.168.0.24:3001 | https://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
 | Metrics | 109 | http://192.168.0.25:3000 | https://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
 | Proxmox Backup Server | 110 | https://192.168.0.26:8007 | https://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
 | Proxmox Backup Server 2 | 115 | https://192.168.0.32:8007 | https://pbs2.home.arpa | On `live-laugh-nicolekidman`; a second copy of every backup, on its 1 TB HDD (see [Backups](#backups)) |
 | Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
 | Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
-| Arr | 114 | 192.168.0.31 | https://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, sabnzbd, seerr | On `live-laugh-nicolekidman`; Docker Compose stack with two download clients, one behind a VPN (see [Media](#media)) |
+| Arr | 114 | 10.42.20.31 (media VLAN) | https://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, sabnzbd, seerr | On `live-laugh-nicolekidman`; Docker Compose stack with two download clients, one behind a VPN (see [Media](#media)) |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -162,7 +162,7 @@ The hAP routes four VLANs, listed in `vlans` in [`ansible/group_vars/all.yml`](a
 
 Each one's gateway is its `.1`. DHCP, on iot and clients, hands out `.100`–`.254` with Pi-hole for DNS. Replies always get back, so Caddy (or a client) can open Jellyfin's web UI, but nothing on media or iot can open a connection to the other VLANs or to the router, apart from DHCP. Services and clients can manage the router, like the flat LAN. To change who reaches what, edit `vlan_policy` in [`stacks/network/vlans.tf`](stacks/network/vlans.tf) and the rules in [`firewall.tf`](stacks/network/firewall.tf).
 
-Guests move one group at a time: iot (done), then media, then clients, and the nodes and services last. A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
+Guests move one group at a time: iot and media (done), then clients, and the nodes and services last. A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
 
 The IoT gadgets have their own SSID, `TF_VAR_wifi_iot_ssid`, on 2.4 GHz only, with its own WPA2 passphrase, so they never learn the main one. It's untagged into VLAN 30. The router repeats mDNS between the flat LAN, clients and iot, so phones still find the Google speakers to cast to. Pi-hole answers lookups from every VLAN (`pihole_listening_mode: ALL` in [`roles/pihole`](ansible/roles/pihole/defaults/main.yml)). Its default only answers its own subnet and silently drops the rest.
 
@@ -188,6 +188,12 @@ Moving Home Assistant and the gadgets onto iot, once:
 2. `tofu apply` in `stacks/homelab`, which tags Home Assistant's NIC and Mosquitto's into VLAN 30. Home Assistant keeps its old address until it asks DHCP again, so restart it: `qm reboot 102` on its node.
 3. `ansible-playbook playbooks/caddy.yml`, which points `homeassistant.home.arpa` at the new address.
 4. Move each gadget to the IoT SSID: the thermostat from its own menu, the Kasa plug in the Kasa app, the Google speakers in the Google Home app. Home Assistant finds them again on iot. If an integration was set up with an IP address, fix it there.
+
+Moving Jellyfin and arr onto media, once:
+
+1. `tofu apply` in `stacks/homelab`, which gives both containers their new address and VLAN tag.
+2. `ansible-playbook playbooks/arr.yml`, which lists the subnets gluetun answers outside the tunnel (`arr_outbound_subnets`), then `ansible-playbook playbooks/caddy.yml`, which points the names at the new addresses.
+3. In Seerr, change Jellyfin's address to `10.42.20.23` (Settings → Jellyfin). Not `jellyfin.home.arpa`: that goes through Caddy, which media can't reach.
 
 ## Layout
 
@@ -291,7 +297,7 @@ The first Jellyfin run creates the SMB account and needs a password in the envir
 MEDIA_SHARE_PASSWORD=... ansible-playbook playbooks/jellyfin.yml
 ```
 
-After that, change it with `smbpasswd media` inside the container. The share is `\\192.168.0.23\media`.
+After that, change it with `smbpasswd media` inside the container. The share is `\\10.42.20.23\media`.
 
 ### Media
 
@@ -307,11 +313,11 @@ The media has no redundancy, on purpose. Each disk is plain ext4, and mergerfs s
 
 Everything is owned by the `library` group (gid 2000, set in `group_vars/all.yml`), which exists in both containers with Jellyfin in it. The apps run as `arr` (uid 2000) with umask 002, so neither side locks the other out.
 
-The arr container runs [Docker Compose](ansible/roles/arr/templates/compose.yaml.j2) in `/opt/arr`, with each app's config in `/var/lib/arr/<app>` (backed up by PBS). Inside the stack, apps reach each other by service name: in Sonarr and Radarr, add qBittorrent as host `gluetun`, port `8080`, and use `/data/...` paths (qBittorrent, SABnzbd, Sonarr, Radarr and Bazarr all see the media at `/data`). Point Prowlarr at `http://sonarr:8989` and `http://radarr:7878`, and Seerr at Jellyfin on `http://192.168.0.23:8096`. For indexers behind Cloudflare, add FlareSolverr in Prowlarr under Settings → Indexers → Indexer Proxies (host `http://flaresolverr:8191`, with a tag such as `flaresolverr`), then give those indexers the same tag. qBittorrent prints a temporary web UI password on first start: `docker compose -f /opt/arr/compose.yaml logs qbittorrent`.
+The arr container runs [Docker Compose](ansible/roles/arr/templates/compose.yaml.j2) in `/opt/arr`, with each app's config in `/var/lib/arr/<app>` (backed up by PBS). Inside the stack, apps reach each other by service name: in Sonarr and Radarr, add qBittorrent as host `gluetun`, port `8080`, and use `/data/...` paths (qBittorrent, SABnzbd, Sonarr, Radarr and Bazarr all see the media at `/data`). Point Prowlarr at `http://sonarr:8989` and `http://radarr:7878`, and Seerr at Jellyfin on `http://10.42.20.23:8096`. For indexers behind Cloudflare, add FlareSolverr in Prowlarr under Settings → Indexers → Indexer Proxies (host `http://flaresolverr:8191`, with a tag such as `flaresolverr`), then give those indexers the same tag. qBittorrent prints a temporary web UI password on first start: `docker compose -f /opt/arr/compose.yaml logs qbittorrent`.
 
 SABnzbd is published on port 8085, but inside the stack it's `sabnzbd`, port `8080`. It doesn't go through the VPN; it connects straight to its server over SSL. To set it up:
 
-- Run the first-run wizard at http://192.168.0.31:8085 and enter your server's host, port (usually `563` with SSL on), login, and connections up to your plan's limit.
+- Run the first-run wizard at http://10.42.20.31:8085 and enter your server's host, port (usually `563` with SSL on), login, and connections up to your plan's limit.
 - Under Config → Folders, set the temporary folder to `/data/downloads/usenet/incomplete` and the completed folder to `/data/downloads/usenet/complete`.
 - Under Config → Categories, add `tv`, `movies` and `anime`.
 - Under Config → Special, add `sabnzbd, sabnzbd.home.arpa` to `host_whitelist`, or it refuses Caddy and the other apps.

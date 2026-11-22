@@ -19,8 +19,8 @@ services:
       VPN_SERVICE_PROVIDER: surfshark
       VPN_TYPE: wireguard
       SERVER_COUNTRIES: {{ arr_vpn_countries }}
-      # Lets the web UI answer LAN clients, which would otherwise be routed into the tunnel
-      FIREWALL_OUTBOUND_SUBNETS: {{ home_subnet }}
+      # Lets the web UIs answer these subnets, whose replies would otherwise be routed into the tunnel
+      FIREWALL_OUTBOUND_SUBNETS: {{ arr_outbound_subnets | join(',') }}
       TZ: {{ arr_timezone }}
     ports:
       # qBittorrent's web UI, which lives in this container's network
