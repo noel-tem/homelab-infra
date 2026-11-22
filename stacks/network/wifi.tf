@@ -17,6 +17,16 @@ resource "routeros_wifi_configuration" "home" {
   }
 }
 
+# 5 GHz on channel 36 at 80 MHz (36–48, no DFS). Left to itself, RouterOS picked channel 177, which many
+# clients (older Intel cards, smart-home gadgets) can't use, so everything stayed on 2.4 GHz
+resource "routeros_wifi_channel" "five_ghz" {
+  name              = "5ghz"
+  band              = "5ghz-ax"
+  width             = "20/40/80mhz"
+  frequency         = [5180]
+  skip_dfs_channels = "all"
+}
+
 # The radios come with the router, so Tofu adopts them rather than creating them
 import {
   for_each = toset(local.wifi_radios)
@@ -31,4 +41,6 @@ resource "routeros_wifi" "radio" {
   configuration = {
     config = routeros_wifi_configuration.home.name
   }
+  # wifi1 is the 5 GHz radio (locals.tf); 2.4 GHz keeps RouterOS's automatic choice
+  channel = each.key == "wifi1" ? { config = routeros_wifi_channel.five_ghz.name } : null
 }

@@ -22,5 +22,10 @@ locals {
   static_leases = {
     # Home Assistant OS takes its address by DHCP; the MAC is its network_device in stacks/homelab/homeassistant.tf
     homeassistant = { mac = "02:AF:81:79:C4:10", ip = local.shared.guests.homeassistant.ip }
+
+    # Carried over from the old router's reservations, at the same addresses
+    dennis          = { mac = "78:AF:08:66:CC:9F", ip = "192.168.0.58" }
+    desktop-qames3t = { mac = "B4:2E:99:FD:DF:DE", ip = "192.168.0.43" }
+    dennis-thinkpad = { mac = "50:7B:9D:75:29:1A", ip = "192.168.0.154" } # its wired port
   }
 }
