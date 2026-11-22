@@ -1,0 +1,14 @@
+- name: Reload networking
+  ansible.builtin.command: ifreload -a
+  changed_when: true
+  notify: Wait for the cluster
+
+- name: Wait for the cluster
+  ansible.builtin.command: pvecm status
+  register: node_network_rejoined
+  changed_when: false
+  until: >-
+    node_network_rejoined.stdout is search('Quorate:\s+Yes') and
+    (node_network_rejoined.stdout | regex_findall('Total votes:\s+(\d+)') | first | int) == groups['proxmox'] | length
+  retries: 30
+  delay: 5

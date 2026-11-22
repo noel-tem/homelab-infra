@@ -15,15 +15,23 @@ resource "routeros_interface_list_member" "wan" {
   interface = local.wan_port
 }
 
-# The firewall only lets in what comes from this list, so the management port has to be on it
+# The firewall only lets in what comes from this list, so the management port has to be on it. Also the trusted
+# VLANs (vlans.tf)
 resource "routeros_interface_list_member" "lan" {
-  for_each  = toset([routeros_interface_bridge.lan.name, local.mgmt_port])
+  for_each = toset(concat(
+    [routeros_interface_bridge.lan.name, local.mgmt_port],
+    [for name, v in local.vlans : routeros_interface_vlan.vlan[name].name if v.trusted],
+  ))
   list      = routeros_interface_list.lan.name
   interface = each.key
 }
 
+# VLAN-aware, so it carries the tagged VLANs in vlans.tf alongside the flat LAN, which is untagged VLAN 1 (every
+# port's default pvid). Turning this on resets the bridge for a second or two; if that cuts an apply off, apply
+# again (README: VLANs)
 resource "routeros_interface_bridge" "lan" {
-  name = "bridge"
+  name           = "bridge"
+  vlan_filtering = true
 }
 
 resource "routeros_interface_bridge_port" "lan" {

@@ -4,6 +4,13 @@ cpu_governor_nodes: [live-laugh-nicolekidman]
 # Root's key in every container; Tofu reads it from here so the deployer (which has its own key) builds identical containers
 ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJm21vYZqBMhgV4jXQ1WQcaCt15tPdzDx8ElhJoigcgs noel@wsl
 home_subnet: 192.168.0.0/24
+# The VLANs the router routes between (stacks/network). The third octet is the VLAN ID, and a guest keeps its last
+# octet when it moves into one. home_subnet is VLAN 1, untagged, and empties out as guests move (README: VLANs)
+vlans:
+  services: { id: 10, subnet: 10.42.10.0/24 }
+  media: { id: 20, subnet: 10.42.20.0/24 }
+  iot: { id: 30, subnet: 10.42.30.0/24 }
+  clients: { id: 40, subnet: 10.42.40.0/24 }
 # Proxmox cluster nodes, keyed by node name; each is in the Ansible inventory and runs a subnet router
 nodes:
   live-laugh-homelab: { ip: 192.168.0.50 }

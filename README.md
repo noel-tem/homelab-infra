@@ -98,17 +98,17 @@ Tofu also sets a split-DNS rule on the tailnet that sends `home.arpa` lookups to
 
 ### Router
 
-The ISP box is in bridge mode, and behind it a MikroTik hAP ax3 (`live-laugh-router`, `192.168.0.1`) is the LAN's gateway, DHCP server and Wi-Fi. A Netgear GS305E switch hangs off it, and all three nodes plug into the switch, so rebooting the router (say, for a RouterOS update) doesn't break the cluster and make the HA nodes reboot themselves.
+The ISP box is an AT&T BGW320-505 in IP Passthrough mode (it has no true bridge mode), so the public IP goes straight to a MikroTik hAP ax3 behind it, and there's no double NAT. The hAP (`live-laugh-router`, `192.168.0.1`) is the LAN's gateway, DHCP server and Wi-Fi. A Netgear GS305E switch hangs off it, and all three nodes plug into the switch, so rebooting the router (say, for a RouterOS update) doesn't break the cluster and make the HA nodes reboot themselves.
 
 | hAP port | Use |
 |---|---|
-| ether1 | WAN, to the ISP box |
-| ether2–4, both radios | The LAN bridge. The switch goes on ether2 |
+| ether1 | WAN, to the ISP box. It gets the public IP via [IP Passthrough](#setting-up-the-isp-gateway) |
+| ether2–4, both radios | The LAN bridge, untagged VLAN 1. The switch goes on ether2, which also carries the [VLANs](#vlans) tagged |
 | ether5 | Management only, `192.168.88.1/24`, outside the bridge. If an apply ever locks you out, plug a laptop in here with a static `192.168.88.2/24` |
 
-[`stacks/network`](stacks/network/) configures it through the RouterOS REST API: the bridge, DHCP (Pi-hole for DNS, `.100`–`.254`, Home Assistant's address reserved), RouterOS's default firewall and NAT, one Wi-Fi network on both radios, and management services restricted to the LAN. IPv6 is off. Apply it by hand like `stacks/tailnet`; the deployer never does. To keep a DHCP device's address fixed, add it to `static_leases` in [`stacks/network/locals.tf`](stacks/network/locals.tf).
+[`stacks/network`](stacks/network/) configures it through the RouterOS REST API: the bridge and its VLANs, DHCP (Pi-hole for DNS, `.100`–`.254`, Home Assistant's address reserved), RouterOS's default firewall and NAT, one Wi-Fi network on both radios, and management services restricted to the LAN. IPv6 is off. Apply it by hand like `stacks/tailnet`; the deployer never does. To keep a DHCP device's address fixed, add it to `static_leases` in [`stacks/network/locals.tf`](stacks/network/locals.tf).
 
-The GS305E has no API and runs no RouterOS, so its setup is manual (below). For now it's a plain switch on one network.
+The GS305E has no API and runs no RouterOS, so its setup is manual (below). It carries the VLANs to the nodes tagged.
 
 #### Setting up the router
 
@@ -126,7 +126,7 @@ Do this with the old router still in place. Nothing changes for the LAN until th
 
    The plan should import `wifi1` and `wifi2` and create everything else. Wi-Fi stays off here. Otherwise devices would join the hAP and its DHCP while it has no internet.
 5. **Switch first.** Set up the GS305E (below) and plug it into the old router. Then move the nodes onto it **one at a time**. Before moving the next one, wait until `pvecm status` shows the moved node back and the cluster quorate. Done this way, the cluster never loses more than one node at once.
-6. **Swap.** Move the ISP box's cable to the hAP's ether1 and the switch's uplink to ether2, then switch off the old router. If the hAP gets no address on ether1, power-cycle the ISP box: some only talk to the first MAC they saw. Set `TF_VAR_router_url=https://192.168.0.1` in `.env`, unset `TF_VAR_wifi_enabled`, and `tofu apply` again to turn on the Wi-Fi. It has the old SSID and passphrase, so devices rejoin by themselves. DHCP devices get new addresses from `.100` up, except those in `static_leases`.
+6. **Swap.** Move the ISP box's cable to the hAP's ether1 and the switch's uplink to ether2, then switch off the old router. If the hAP gets no address on ether1, power-cycle the ISP box: some only talk to the first MAC they saw. Then set up IP Passthrough (below). Set `TF_VAR_router_url=https://192.168.0.1` in `.env`, unset `TF_VAR_wifi_enabled`, and `tofu apply` again to turn on the Wi-Fi. It has the old SSID and passphrase, so devices rejoin by themselves. DHCP devices get new addresses from `.100` up, except those in `static_leases`.
 
 The nodes, the guests and Tailscale don't notice the swap: the subnet, the gateway and Pi-hole stay the same.
 
@@ -139,6 +139,46 @@ The GS305E is configured in its web UI. Find it with Netgear's Switch Discovery 
 3. Give it the static address `192.168.0.2/24`, gateway `192.168.0.1`, DNS `192.168.0.10` (System → Management → IP Configuration).
 
 Leave VLANs alone for now: out of the box, every port is untagged on VLAN 1. Its web UI is plain HTTP, so only log in to it from the LAN.
+4. Turn on the VLANs (VLAN → 802.1Q → Advanced → Enable). Add VLANs 10, 20, 30 and 40 under VLAN Configuration. Under VLAN Membership, make each of them **tagged** (T) on the uplink to the hAP and on the three node ports. Leave VLAN 1 untagged on every port and every PVID at 1, so the flat LAN, and the switch's own address on it, carry on as before.
+
+#### Setting up the ISP gateway
+
+The BGW320 belongs to AT&T and has only a web UI, so this is manual too. Without it, the hAP gets a private `192.168.1.x` address behind the gateway, which means double NAT, and port forwards (for WireGuard, say) would have to be set up on both.
+
+1. Open http://192.168.1.254 → Firewall → IP Passthrough, and log in with the Device Access Code on the gateway's sticker.
+2. Set Allocation Mode to **Passthrough** and Passthrough Mode to **DHCPS-fixed**. Set Passthrough Fixed MAC Address to the hAP's ether1 MAC (`/interface ethernet print` on the router, or the gateway's device list), then save.
+3. Make the hAP ask for an address again with `tofu apply -replace=routeros_ip_dhcp_client.wan` in `stacks/network`. It should come back with the public IP on ether1, no longer `192.168.1.x`. ether1's address changes partway through, which kills tofu's connection to the state bucket, so the apply can sit at "Releasing state lock" for about 10 minutes before it retries and finishes. Don't Ctrl+C it.
+
+#### VLANs
+
+The hAP routes four VLANs, listed in `vlans` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), beside the flat LAN. That LAN is VLAN 1, untagged, and empties out as guests move off it. The third octet is the VLAN ID, and a guest keeps its last octet when it moves, so Jellyfin's `192.168.0.23` becomes `10.42.20.23`.
+
+| VLAN | Subnet | For | Reaches |
+|---|---|---|---|
+| 10 services | `10.42.10.0/24` | the nodes, Pi-hole, Caddy and the rest of the infrastructure | everything |
+| 20 media | `10.42.20.0/24` | Jellyfin, arr | the internet, Pi-hole's DNS |
+| 30 iot | `10.42.30.0/24` | Home Assistant, Mosquitto, smart-home gadgets (DHCP) | the internet, Pi-hole's DNS |
+| 40 clients | `10.42.40.0/24` | Wi-Fi, desktops, laptops (DHCP) | everything |
+
+Each one's gateway is its `.1`. DHCP, on iot and clients, hands out `.100`–`.254` with Pi-hole for DNS. Replies always get back, so Caddy (or a client) can open Jellyfin's web UI, but nothing on media or iot can open a connection to the other VLANs or to the router, apart from DHCP. Services and clients can manage the router, like the flat LAN. To change who reaches what, edit `vlan_policy` in [`stacks/network/vlans.tf`](stacks/network/vlans.tf) and the rules in [`firewall.tf`](stacks/network/firewall.tf).
+
+Nothing is on them yet. Guests move one group at a time: iot, then media, then clients, and the nodes and services last.
+
+Setting them up, once:
+
+1. **Router.** Run `tofu apply` in `stacks/network`. Turning on VLAN filtering resets the hAP's bridge, so the LAN drops out for a second or two. The nodes are on the switch, so the cluster doesn't notice. The router keeps `192.168.0.1` on untagged VLAN 1 throughout. If the reset cuts Tofu off mid-apply and it errors, run `tofu apply` again to finish.
+2. **Switch.** Step 4 of setting up the switch, above.
+3. **Nodes.** Run `ansible-playbook playbooks/proxmox-host.yml` (dry run first with `--check --diff`). Its last play, [`roles/node_network`](ansible/roles/node_network/), adds `bridge-vlan-aware yes` and `bridge-vids 2-4094` to `vmbr0` and runs `ifreload -a`. It does one node at a time, and only starts on a node once `pvecm status` shows all three nodes in a quorate cluster. Then it waits for that again before moving on. Untagged traffic, which is everything on VLAN 1 including the running guests, carries on as before. The rest of `/etc/network/interfaces` is still edited by hand.
+4. **Check it.** On a node, put a throwaway address on VLAN 10 and ping the router through it. The node itself is only on VLAN 1, so first add VLAN 10 to the bridge's own port, and take it off again afterwards (guests get their VLANs on their own ports, so they don't need this):
+
+   ```sh
+   bridge vlan add dev vmbr0 vid 10 self
+   ip link add link vmbr0 name vtest type vlan id 10
+   ip addr add 10.42.10.250/24 dev vtest && ip link set vtest up
+   ping -c3 10.42.10.1
+   ip link del vtest
+   bridge vlan del dev vmbr0 vid 10 self
+   ```
 
 ## Layout
 

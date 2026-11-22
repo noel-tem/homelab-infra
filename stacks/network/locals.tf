@@ -8,7 +8,7 @@ locals {
   # The router is .1, as the old one was, so nothing on the LAN needs a new gateway
   router_ip = cidrhost(local.shared.home_subnet, 1)
 
-  # ether1 is the WAN (the ISP box, in bridge mode). ether5 is left out of the bridge as an out-of-band
+  # ether1 is the WAN (the ISP box, an AT&T BGW320 in IP Passthrough). ether5 is left out of the bridge as an out-of-band
   # management port with the bootstrap's 192.168.88.1/24; Tofu never touches its address
   wan_port    = "ether1"
   mgmt_port   = "ether5"
