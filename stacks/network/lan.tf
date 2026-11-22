@@ -54,6 +54,8 @@ resource "routeros_ip_dhcp_server" "lan" {
   interface    = routeros_interface_bridge.lan.name
   address_pool = routeros_ip_pool.lan.name
   lease_time   = "1d"
+  # RouterOS 7.25's default; without it every plan tries to clear it
+  dynamic_lease_identifiers = "client-mac,client-id"
 }
 
 # Clients get Pi-hole for DNS, as they did from the old router
