@@ -2,7 +2,7 @@
 
 Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` (192.168.0.50), `live-laugh-tomcruise` (192.168.0.51) and `live-laugh-nicolekidman` (192.168.0.52). Any one of them can be down without the cluster losing quorum.
 
-- **OpenTofu** creates the guests (`stacks/homelab/`) and owns the Tailscale key, route approval and split DNS (`stacks/tailnet/`).
+- **OpenTofu** creates the guests (`stacks/homelab/`), owns the Tailscale key, route approval and split DNS (`stacks/tailnet/`), and configures the MikroTik router (`stacks/network/`).
 - **Ansible** (`ansible/`) configures everything inside them, plus the Proxmox nodes themselves.
 
 ## Services
@@ -96,12 +96,57 @@ The tailnet policy (ACLs, tag owners, SSH rules) lives in [`stacks/tailnet/polic
 
 Tofu also sets a split-DNS rule on the tailnet that sends `home.arpa` lookups to Pi-hole over that route, so the names work remotely too.
 
+### Router
+
+The ISP box is in bridge mode, and behind it a MikroTik hAP ax3 (`live-laugh-router`, `192.168.0.1`) is the LAN's gateway, DHCP server and Wi-Fi. A Netgear GS305E switch hangs off it, and all three nodes plug into the switch, so rebooting the router (say, for a RouterOS update) doesn't break the cluster and make the HA nodes reboot themselves.
+
+| hAP port | Use |
+|---|---|
+| ether1 | WAN, to the ISP box |
+| ether2–4, both radios | The LAN bridge. The switch goes on ether2 |
+| ether5 | Management only, `192.168.88.1/24`, outside the bridge. If an apply ever locks you out, plug a laptop in here with a static `192.168.88.2/24` |
+
+[`stacks/network`](stacks/network/) configures it through the RouterOS REST API: the bridge, DHCP (Pi-hole for DNS, `.100`–`.254`, Home Assistant's address reserved), RouterOS's default firewall and NAT, one Wi-Fi network on both radios, and management services restricted to the LAN. IPv6 is off. Apply it by hand like `stacks/tailnet`; the deployer never does. To keep a DHCP device's address fixed, add it to `static_leases` in [`stacks/network/locals.tf`](stacks/network/locals.tf).
+
+The GS305E has no API and runs no RouterOS, so its setup is manual (below). For now it's a plain switch on one network.
+
+#### Setting up the router
+
+Do this with the old router still in place. Nothing changes for the LAN until the final step.
+
+1. **Update it.** Plug the hAP's ether1 into the old router and a laptop into ether2. The factory config gives the laptop an address and the hAP internet. Log in to WinBox or http://192.168.88.1 as `admin` with the password on the sticker. Then run `/system package update install`. Once it's back up, run `/system routerboard upgrade` and `/system reboot`.
+2. **Wipe it.** Run `/system reset-configuration no-defaults=yes`. That leaves it with no address, so connect WinBox to it by MAC (the Neighbors tab), as `admin` with an **empty** password (not the sticker one). Change that password right away with `/password` and keep it in the password manager.
+3. **Bootstrap it.** Paste [`stacks/network/bootstrap.rsc`](stacks/network/bootstrap.rsc) into WinBox's terminal. It puts `192.168.88.1/24` on ether5, makes a local CA and a certificate signed by it, and turns on the HTTPS API. Then add Tofu's user: `/user add name=tofu group=full password="<TF_VAR_router_password>"`.
+4. **Stage it.** Unplug ether1, so it's no longer behind the old router. Plug the laptop into ether5 and give that adapter a static `192.168.88.2/24` with no gateway. The laptop keeps its internet over Wi-Fi, which Tofu needs for the state bucket. Under WSL, the address goes on the Windows adapter. Then run:
+
+   ```sh
+   export TF_VAR_router_url=https://192.168.88.1 TF_VAR_wifi_enabled=false
+   cd stacks/network && tofu init && tofu plan && tofu apply
+   ```
+
+   The plan should import `wifi1` and `wifi2` and create everything else. Wi-Fi stays off here. Otherwise devices would join the hAP and its DHCP while it has no internet.
+5. **Switch first.** Set up the GS305E (below) and plug it into the old router. Then move the nodes onto it **one at a time**. Before moving the next one, wait until `pvecm status` shows the moved node back and the cluster quorate. Done this way, the cluster never loses more than one node at once.
+6. **Swap.** Move the ISP box's cable to the hAP's ether1 and the switch's uplink to ether2, then switch off the old router. If the hAP gets no address on ether1, power-cycle the ISP box: some only talk to the first MAC they saw. Set `TF_VAR_router_url=https://192.168.0.1` in `.env`, unset `TF_VAR_wifi_enabled`, and `tofu apply` again to turn on the Wi-Fi. It has the old SSID and passphrase, so devices rejoin by themselves. DHCP devices get new addresses from `.100` up, except those in `static_leases`.
+
+The nodes, the guests and Tailscale don't notice the swap: the subnet, the gateway and Pi-hole stay the same.
+
+#### Setting up the switch
+
+The GS305E is configured in its web UI. Find it with Netgear's Switch Discovery Tool or in the old router's DHCP leases. It falls back to `192.168.0.239` if it gets no lease.
+
+1. Log in with the default password, `password`, and change it.
+2. Update its firmware (System → Maintenance → Firmware Upgrade).
+3. Give it the static address `192.168.0.2/24`, gateway `192.168.0.1`, DNS `192.168.0.10` (System → Management → IP Configuration).
+
+Leave VLANs alone for now: out of the box, every port is untagged on VLAN 1. Its web UI is plain HTTP, so only log in to it from the LAN.
+
 ## Layout
 
 ```
 modules/lxc/        reusable LXC container module
 stacks/homelab/     the actual guests
 stacks/tailnet/     Tailscale key, route approval + split DNS (kept apart so guest changes can't touch remote access)
+stacks/network/     the hAP ax3 router: LAN, DHCP, firewall, Wi-Fi (kept apart so guest changes can't touch the network)
 ansible/
   site.yml          runs everything
   connection_plugins/  pct: the faster container connection
@@ -140,6 +185,11 @@ export TF_VAR_r2_account_id=...             # Cloudflare account ID
 export TF_VAR_r2_bucket=...                 # R2 bucket holding the state
 export AWS_ACCESS_KEY_ID=...                # R2 API token (Object Read & Write on that bucket)
 export AWS_SECRET_ACCESS_KEY=...
+export TF_VAR_router_url=https://192.168.0.1   # https://192.168.88.1 while the hAP is staged (see Router)
+export TF_VAR_router_password=...          # the router's tofu user
+export TF_VAR_wifi_ssid=...
+export TF_VAR_wifi_passphrase=...
+export TF_VAR_wifi_country=...             # RouterOS's name for it, e.g. "United States"
 export INFLUXDB_TOKEN=...                   # e.g. openssl rand -hex 32; Grafana and Proxmox use it on every run
 export INFLUXDB_PASSWORD=...                # InfluxDB admin; only read when InfluxDB is first set up
 export PBS_ADMIN_PASSWORD=...               # admin@pbs on PBS; only read when that user is created
@@ -162,11 +212,11 @@ tofu plan
 tofu apply
 ```
 
-The Tailscale side is the same in `stacks/tailnet`; it only needs the Tailscale and R2 credentials.
+The Tailscale side is the same in `stacks/tailnet`; it only needs the Tailscale and R2 credentials. The router is `stacks/network` (see [Router](#router)), which needs the router and R2 credentials.
 
 On a fresh build (or a new node) the node isn't on the tailnet yet, so it takes two applies: `tofu apply` (mints the auth key), then `ansible-playbook playbooks/proxmox-host.yml` within the hour (joins the node), then `tofu apply` again (approves the route).
 
-State lives in the R2 bucket at `homelab/terraform.tfstate` and `tailnet/terraform.tfstate`, each encrypted with `TF_VAR_state_passphrase` before upload. Keep the passphrase in a password manager too: without it the state can't be read.
+State lives in the R2 bucket at `homelab/terraform.tfstate`, `tailnet/terraform.tfstate` and `network/terraform.tfstate`, each encrypted with `TF_VAR_state_passphrase` before upload. Keep the passphrase in a password manager too: without it the state can't be read.
 
 ### Configure them
 
@@ -290,7 +340,7 @@ Merging to `main` deploys it, and `@claude` on an issue gets a PR. It's split ac
 
 - **runner** is the only Gitea Actions runner (label `claude`). It runs [`check`](.gitea/workflows/check.yml) (fmt, validate, ansible-lint) on every PR and [`claude`](.gitea/workflows/claude.yml) when you write `@claude` in a new issue or an issue comment. Claude edits a `claude/issue-<n>` branch, and the workflow pushes it, opens a PR and replies on the issue. The runner only holds Claude's two secrets, no infra credentials.
 - **deployer** isn't a runner, so no workflow can reach it. Every 2 minutes it fetches `main`, and for each new commit it runs `tofu apply` on `stacks/homelab`, then `ansible-playbook site.yml`. A plan that deletes or replaces anything isn't applied: the deploy fails and you apply it by hand. The result shows as a `deploy` status on the commit. Logs: `journalctl -u deployer` on the deployer. Each commit is tried once; to try it again, run `touch /var/lib/deployer/retry && systemctl start deployer`. On its first run, and whenever `last-attempted` is missing, it marks whatever's on `main` as deployed without applying anything.
-- **`stacks/tailnet` is never auto-applied.** Apply it by hand as before, so a merge can't cut remote access. The deployer doesn't have the Tailscale credentials at all.
+- **`stacks/tailnet` and `stacks/network` are never auto-applied.** Apply them by hand as before, so a merge can't cut remote access or take the network down. The deployer doesn't have the Tailscale or router credentials at all.
 - Before Claude's changes are committed, the workflow checks them for Claude's tokens and anything shaped like an Anthropic key. If it finds one it stops without pushing, because the branch would be on public GitHub seconds later.
 
 Runner labels only route jobs. They don't restrict them, so any branch could send a job to any runner. That's why the infra credentials sit on a host that only ever runs `main`, and `main` only gets code through branch protection.
