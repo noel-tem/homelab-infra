@@ -73,17 +73,24 @@ resource "routeros_ip_dhcp_server_network" "lan" {
   dns_server = [local.shared.guests.pihole.ip]
 }
 
+# On the flat LAN's DHCP server, or the one for its vlan
 resource "routeros_ip_dhcp_server_lease" "static" {
   for_each    = local.static_leases
-  server      = routeros_ip_dhcp_server.lan.name
+  server      = lookup(each.value, "vlan", null) == null ? routeros_ip_dhcp_server.lan.name : routeros_ip_dhcp_server.vlan[each.value.vlan].name
   mac_address = each.value.mac
   address     = each.value.ip
   comment     = each.key
 }
 
-# Only answers the router itself, not the LAN; Pi-hole is the LAN's resolver
+# Only answers the router itself, not the LAN; Pi-hole is the LAN's resolver. It does repeat mDNS between the LAN,
+# clients and iot, so phones still find the Google speakers to cast to, and the Home Assistant app finds it
 resource "routeros_ip_dns" "this" {
   allow_remote_requests = false
+  mdns_repeat_ifaces = [
+    routeros_interface_bridge.lan.name,
+    routeros_interface_vlan.vlan["clients"].name,
+    routeros_interface_vlan.vlan["iot"].name,
+  ]
 }
 
 resource "routeros_system_ntp_client" "this" {

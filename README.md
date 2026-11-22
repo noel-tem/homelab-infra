@@ -10,8 +10,8 @@ Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` 
 | Guest | ID | Direct address | Name | Notes |
 |---|---|---|---|---|
 | Pi-hole | 100 | http://192.168.0.10/admin | https://pihole.home.arpa | LAN DNS (port 53); holds the `*.home.arpa` records |
-| Home Assistant OS | 102 | http://192.168.0.83:8123 | https://homeassistant.home.arpa | VM from community-scripts, imported into Tofu |
-| Mosquitto | 104 | `mqtt://192.168.0.20:1883` | — | MQTT broker, no Ansible config yet |
+| Home Assistant OS | 102 | http://10.42.30.83:8123 (iot VLAN) | https://homeassistant.home.arpa | VM from community-scripts, imported into Tofu |
+| Mosquitto | 104 | `mqtt://10.42.30.20:1883` (iot VLAN) | — | MQTT broker, no Ansible config yet |
 | Caddy | 105 | http://192.168.0.21 | — | HTTPS reverse proxy for every `*.home.arpa` name; the direct address serves its root certificate (see [HTTPS](#https)) |
 | Gitea | 106 | http://192.168.0.22:3000 | https://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
 | Jellyfin | 107 | http://192.168.0.23:8096 | https://jellyfin.home.arpa | On `live-laugh-nicolekidman`; iGPU passthrough; the media on its mergerfs pool (shared with arr), also over SMB at `\\192.168.0.23\media` |
@@ -162,7 +162,9 @@ The hAP routes four VLANs, listed in `vlans` in [`ansible/group_vars/all.yml`](a
 
 Each one's gateway is its `.1`. DHCP, on iot and clients, hands out `.100`–`.254` with Pi-hole for DNS. Replies always get back, so Caddy (or a client) can open Jellyfin's web UI, but nothing on media or iot can open a connection to the other VLANs or to the router, apart from DHCP. Services and clients can manage the router, like the flat LAN. To change who reaches what, edit `vlan_policy` in [`stacks/network/vlans.tf`](stacks/network/vlans.tf) and the rules in [`firewall.tf`](stacks/network/firewall.tf).
 
-Nothing is on them yet. Guests move one group at a time: iot, then media, then clients, and the nodes and services last.
+Guests move one group at a time: iot (done), then media, then clients, and the nodes and services last. A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
+
+The IoT gadgets have their own SSID, `TF_VAR_wifi_iot_ssid`, on 2.4 GHz only, with its own WPA2 passphrase, so they never learn the main one. It's untagged into VLAN 30. The router repeats mDNS between the flat LAN, clients and iot, so phones still find the Google speakers to cast to. Pi-hole answers lookups from every VLAN (`pihole_listening_mode: ALL` in [`roles/pihole`](ansible/roles/pihole/defaults/main.yml)). Its default only answers its own subnet and silently drops the rest.
 
 Setting them up, once:
 
@@ -179,6 +181,13 @@ Setting them up, once:
    ip link del vtest
    bridge vlan del dev vmbr0 vid 10 self
    ```
+
+Moving Home Assistant and the gadgets onto iot, once:
+
+1. Add `TF_VAR_wifi_iot_ssid` and `TF_VAR_wifi_iot_passphrase` to `.env`, then `tofu apply` in `stacks/network`. That brings up the IoT SSID and moves Home Assistant's DHCP reservation to `10.42.30.83` on iot.
+2. `tofu apply` in `stacks/homelab`, which tags Home Assistant's NIC and Mosquitto's into VLAN 30. Home Assistant keeps its old address until it asks DHCP again, so restart it: `qm reboot 102` on its node.
+3. `ansible-playbook playbooks/caddy.yml`, which points `homeassistant.home.arpa` at the new address.
+4. Move each gadget to the IoT SSID: the thermostat from its own menu, the Kasa plug in the Kasa app, the Google speakers in the Google Home app. Home Assistant finds them again on iot. If an integration was set up with an IP address, fix it there.
 
 ## Layout
 
@@ -230,6 +239,8 @@ export TF_VAR_router_password=...          # the router's tofu user
 export TF_VAR_wifi_ssid=...
 export TF_VAR_wifi_passphrase=...
 export TF_VAR_wifi_country=...             # RouterOS's name for it, e.g. "United States"
+export TF_VAR_wifi_iot_ssid=...            # the IoT gadgets' network (README: VLANs)
+export TF_VAR_wifi_iot_passphrase=...
 export INFLUXDB_TOKEN=...                   # e.g. openssl rand -hex 32; Grafana and Proxmox use it on every run
 export INFLUXDB_PASSWORD=...                # InfluxDB admin; only read when InfluxDB is first set up
 export PBS_ADMIN_PASSWORD=...               # admin@pbs on PBS; only read when that user is created

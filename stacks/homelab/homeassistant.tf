@@ -22,7 +22,8 @@ resource "proxmox_virtual_environment_vm" "homeassistant" {
     queues       = 0
     rate_limit   = 0
     trunks       = ""
-    vlan_id      = 0
+    # Its address comes from the router's DHCP reservation on that VLAN (stacks/network/locals.tf)
+    vlan_id = coalesce(local.guest_networks.homeassistant.vlan_id, 0)
   }
   node_name           = local.guests.homeassistant.node
   on_boot             = true

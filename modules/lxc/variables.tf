@@ -55,6 +55,12 @@ variable "ipv4_gateway" {
   default = "192.168.0.1"
 }
 
+variable "vlan_id" {
+  type        = number
+  default     = null
+  description = "The VLAN tag on vmbr0; null for the untagged flat LAN"
+}
+
 variable "ipv6_address" {
   type        = string
   default     = null

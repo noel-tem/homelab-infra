@@ -1,5 +1,9 @@
 # Where lookups go when Pi-hole doesn't answer them itself
 pihole_upstreams: [8.8.8.8, 8.8.4.4]
+# Which clients Pi-hole answers. Its default, LOCAL, only answers its own subnet, and silently drops lookups from the
+# other VLANs (README: VLANs). ALL answers anyone who can reach it, and that's only the LAN and the VLANs: the
+# router drops everything from the internet
+pihole_listening_mode: ALL
 # Every Pi-hole gets exactly these blocklists, so lists added in the web UI get removed
 pihole_adlists:
   - https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/pro.txt

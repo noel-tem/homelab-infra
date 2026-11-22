@@ -22,6 +22,11 @@ locals {
 
   # Where the VLANs leave the hAP tagged: the GS305E's uplink. The other ports stay untagged on VLAN 1
   trunk_ports = ["ether2"]
+
+  # Ports that carry a VLAN untagged, as their pvid (each one's bridge port sets it)
+  access_ports = {
+    iot = [routeros_wifi.iot.name]
+  }
 }
 
 # Tagged on the bridge itself too, so the router's own VLAN interfaces see the traffic
@@ -30,6 +35,7 @@ resource "routeros_interface_bridge_vlan" "vlan" {
   bridge   = routeros_interface_bridge.lan.name
   vlan_ids = [tostring(each.value.id)]
   tagged   = concat([routeros_interface_bridge.lan.name], local.trunk_ports)
+  untagged = lookup(local.access_ports, each.key, null)
   comment  = each.key
 }
 

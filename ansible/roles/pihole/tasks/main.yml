@@ -71,6 +71,19 @@
     pihole_upstreams_current.stdout | default('') | trim | regex_replace('^\\[|\\]$', '') | split(',')
     | map('trim') | select | list != pihole_upstreams
 
+- name: Read the listening mode
+  ansible.builtin.command: pihole-FTL --config dns.listeningMode
+  register: pihole_listening_mode_current
+  changed_when: false
+  check_mode: false
+  failed_when: pihole_listening_mode_current.rc != 0 and not ansible_check_mode
+
+- name: Set the listening mode
+  ansible.builtin.command:
+    argv: [pihole-FTL, --config, dns.listeningMode, "{{ pihole_listening_mode }}"]
+  changed_when: true
+  when: pihole_listening_mode_current.stdout | default('') | trim != pihole_listening_mode
+
 - name: Read blocklists
   ansible.builtin.command:
     argv: [pihole-FTL, sqlite3, /etc/pihole/gravity.db, SELECT address FROM adlist WHERE type = 0]

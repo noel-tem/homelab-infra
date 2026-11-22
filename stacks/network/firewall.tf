@@ -9,8 +9,9 @@ locals {
     { key = "input-established", chain = "input", action = "accept", connection_state = "established,related,untracked" },
     { key = "input-invalid", chain = "input", action = "drop", connection_state = "invalid" },
     { key = "input-icmp", chain = "input", action = "accept", protocol = "icmp" },
-    # RESTRICTED gets DHCP from the router and nothing else of it
+    # RESTRICTED gets DHCP from the router and nothing else of it, except iot's mDNS for the repeater (lan.tf)
     { key = "input-restricted-dhcp", chain = "input", action = "accept", in_interface_list = "RESTRICTED", protocol = "udp", dst_port = "67" },
+    { key = "input-iot-mdns", chain = "input", action = "accept", in_interface = "vlan30-iot", protocol = "udp", dst_port = "5353" },
     { key = "input-not-lan", chain = "input", action = "drop", in_interface_list = "!LAN" },
     # No hw_offload: the hAP ax3 has no L3 hardware offload, and RouterOS rejects the parameter on it
     { key = "forward-fasttrack", chain = "forward", action = "fasttrack-connection", connection_state = "established,related" },
@@ -34,13 +35,17 @@ resource "routeros_ip_firewall_filter" "rule" {
   protocol             = lookup(each.value, "protocol", null)
   dst_address          = lookup(each.value, "dst_address", null)
   dst_port             = lookup(each.value, "dst_port", null)
+  in_interface         = lookup(each.value, "in_interface", null)
   in_interface_list    = lookup(each.value, "in_interface_list", null)
   out_interface_list   = lookup(each.value, "out_interface_list", null)
   comment              = each.key
 
   # A drop on !LAN before the management port is on LAN would cut Tofu off mid-apply, and a rule can't name a
   # list that doesn't exist yet
-  depends_on = [routeros_interface_list_member.lan, routeros_interface_list_member.wan, routeros_interface_list.restricted]
+  depends_on = [
+    routeros_interface_list_member.lan, routeros_interface_list_member.wan, routeros_interface_list.restricted,
+    routeros_interface_vlan.vlan,
+  ]
 }
 
 # Everything the rules above didn't accept. Its own resource so it's only created after them: new rules go on the
