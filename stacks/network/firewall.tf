@@ -6,7 +6,8 @@ locals {
     { key = "input-invalid", chain = "input", action = "drop", connection_state = "invalid" },
     { key = "input-icmp", chain = "input", action = "accept", protocol = "icmp" },
     { key = "input-not-lan", chain = "input", action = "drop", in_interface_list = "!LAN" },
-    { key = "forward-fasttrack", chain = "forward", action = "fasttrack-connection", connection_state = "established,related", hw_offload = true },
+    # No hw_offload: the hAP ax3 has no L3 hardware offload, and RouterOS rejects the parameter on it
+    { key = "forward-fasttrack", chain = "forward", action = "fasttrack-connection", connection_state = "established,related" },
     { key = "forward-established", chain = "forward", action = "accept", connection_state = "established,related,untracked" },
     { key = "forward-invalid", chain = "forward", action = "drop", connection_state = "invalid" },
     { key = "forward-wan-not-dstnat", chain = "forward", action = "drop", in_interface_list = "WAN", connection_nat_state = "!dstnat", connection_state = "new" },
@@ -22,7 +23,6 @@ resource "routeros_ip_firewall_filter" "rule" {
   connection_nat_state = lookup(each.value, "connection_nat_state", null)
   protocol             = lookup(each.value, "protocol", null)
   in_interface_list    = lookup(each.value, "in_interface_list", null)
-  hw_offload           = lookup(each.value, "hw_offload", null)
   comment              = each.key
 
   # A drop on !LAN before the management port is on LAN would cut Tofu off mid-apply
@@ -58,6 +58,11 @@ resource "routeros_tool_mac_server" "this" {
 
 resource "routeros_tool_mac_server_winbox" "this" {
   allowed_interface_list = routeros_interface_list.lan.name
+}
+
+# The bandwidth-test server is on by default and logs in with the router's users; nothing here uses it
+resource "routeros_tool_bandwidth_server" "this" {
+  enabled = false
 }
 
 locals {

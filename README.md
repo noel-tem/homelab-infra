@@ -115,8 +115,8 @@ The GS305E has no API and runs no RouterOS, so its setup is manual (below). For 
 Do this with the old router still in place. Nothing changes for the LAN until the final step.
 
 1. **Update it.** Plug the hAP's ether1 into the old router and a laptop into ether2. The factory config gives the laptop an address and the hAP internet. Log in to WinBox or http://192.168.88.1 as `admin` with the password on the sticker. Then run `/system package update install`. Once it's back up, run `/system routerboard upgrade` and `/system reboot`.
-2. **Wipe it.** Run `/system reset-configuration no-defaults=yes`. That leaves it with no address, so connect WinBox to it by MAC (the Neighbors tab), as `admin` with the sticker password. Change that password with `/password` and keep it in the password manager.
-3. **Bootstrap it.** Paste [`stacks/network/bootstrap.rsc`](stacks/network/bootstrap.rsc) into WinBox's terminal. It puts `192.168.88.1/24` on ether5, makes a certificate and turns on the HTTPS API. Then add Tofu's user: `/user add name=tofu group=full password="<TF_VAR_router_password>"`.
+2. **Wipe it.** Run `/system reset-configuration no-defaults=yes`. That leaves it with no address, so connect WinBox to it by MAC (the Neighbors tab), as `admin` with an **empty** password (not the sticker one). Change that password right away with `/password` and keep it in the password manager.
+3. **Bootstrap it.** Paste [`stacks/network/bootstrap.rsc`](stacks/network/bootstrap.rsc) into WinBox's terminal. It puts `192.168.88.1/24` on ether5, makes a local CA and a certificate signed by it, and turns on the HTTPS API. Then add Tofu's user: `/user add name=tofu group=full password="<TF_VAR_router_password>"`.
 4. **Stage it.** Unplug ether1, so it's no longer behind the old router. Plug the laptop into ether5 and give that adapter a static `192.168.88.2/24` with no gateway. The laptop keeps its internet over Wi-Fi, which Tofu needs for the state bucket. Under WSL, the address goes on the Windows adapter. Then run:
 
    ```sh
