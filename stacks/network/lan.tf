@@ -38,6 +38,7 @@ resource "routeros_interface_bridge_port" "lan" {
   for_each  = toset(concat(local.lan_ports, local.wifi_radios))
   bridge    = routeros_interface_bridge.lan.name
   interface = each.key
+  pvid      = contains(local.client_ports, each.key) ? local.vlans.clients.id : 1
 }
 
 resource "routeros_ip_address" "lan" {

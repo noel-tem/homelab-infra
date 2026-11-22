@@ -25,8 +25,13 @@ locals {
 
   # Ports that carry a VLAN untagged, as their pvid (each one's bridge port sets it)
   access_ports = {
-    iot = [routeros_wifi.iot.name]
+    iot     = [routeros_wifi.iot.name]
+    clients = local.client_ports
   }
+
+  # The LAN ports and radios on clients; the rest stay on the flat LAN (VLAN 1). The main Wi-Fi is first, and
+  # ether3/ether4 follow in a separate apply, since moving the port Tofu runs through cuts it off (README: VLANs)
+  client_ports = local.wifi_radios
 }
 
 # Tagged on the bridge itself too, so the router's own VLAN interfaces see the traffic

@@ -162,7 +162,7 @@ The hAP routes four VLANs, listed in `vlans` in [`ansible/group_vars/all.yml`](a
 
 Each one's gateway is its `.1`. DHCP, on iot and clients, hands out `.100`–`.254` with Pi-hole for DNS. Replies always get back, so Caddy (or a client) can open Jellyfin's web UI, but nothing on media or iot can open a connection to the other VLANs or to the router, apart from DHCP. Services and clients can manage the router, like the flat LAN. To change who reaches what, edit `vlan_policy` in [`stacks/network/vlans.tf`](stacks/network/vlans.tf) and the rules in [`firewall.tf`](stacks/network/firewall.tf).
 
-Guests move one group at a time: iot and media (done), then clients, and the nodes and services last. A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
+Guests move one group at a time: iot and media (done), then clients (steps below), and the nodes and services last. A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
 
 The IoT gadgets have their own SSID, `TF_VAR_wifi_iot_ssid`, on 2.4 GHz only, with its own WPA2 passphrase, so they never learn the main one. It's untagged into VLAN 30. The router repeats mDNS between the flat LAN, clients and iot, so phones still find the Google speakers to cast to. Pi-hole answers lookups from every VLAN (`pihole_listening_mode: ALL` in [`roles/pihole`](ansible/roles/pihole/defaults/main.yml)). Its default only answers its own subnet and silently drops the rest.
 
@@ -194,6 +194,15 @@ Moving Jellyfin and arr onto media, once:
 1. `tofu apply` in `stacks/homelab`, which gives both containers their new address and VLAN tag.
 2. `ansible-playbook playbooks/arr.yml`, which lists the subnets gluetun answers outside the tunnel (`arr_outbound_subnets`), then `ansible-playbook playbooks/caddy.yml`, which points the names at the new addresses.
 3. In Seerr, change Jellyfin's address to `10.42.20.23` (Settings → Jellyfin). Not `jellyfin.home.arpa`: that goes through Caddy, which media can't reach.
+
+Moving the main Wi-Fi and the wired clients onto clients, once. Every Wi-Fi device gets a new address, including whatever runs Tofu if it's on Wi-Fi, which would cut the apply off partway through. So run the router steps from a wired machine on hAP ether3, which stays on VLAN 1 until the last step:
+
+1. `TF_VAR_wifi_enabled=false tofu apply` in `stacks/network`. The radios go off (the main Wi-Fi and IoT, briefly), the Wi-Fi ports go onto VLAN 40, and the reservations in `static_leases` move to clients, keeping their last octet.
+2. `tofu apply` again. The radios come back, and every Wi-Fi device reconnects, asks DHCP and lands on `10.42.40.x`.
+3. GS305E: for the wired desktop's port (the spare one), set VLAN 40 to **U** and VLAN 1 to blank, and that port's PVID to 40.
+4. From any client: add `ether3` and `ether4` to `client_ports` in [`stacks/network/vlans.tf`](stacks/network/vlans.tf) and `tofu apply`.
+
+Home Assistant still controls the TV, which is a client because it runs the Jellyfin app: `forward-ha-tv` in [`firewall.tf`](stacks/network/firewall.tf) lets Home Assistant, and nothing else on iot, through to the TV's reserved address.
 
 ## Layout
 

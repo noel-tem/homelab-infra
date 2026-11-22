@@ -22,6 +22,8 @@ locals {
     { key = "forward-restricted-wan", chain = "forward", action = "accept", in_interface_list = "RESTRICTED", out_interface_list = "WAN" },
     { key = "forward-restricted-dns-udp", chain = "forward", action = "accept", in_interface_list = "RESTRICTED", dst_address = local.pihole_ip, protocol = "udp", dst_port = "53" },
     { key = "forward-restricted-dns-tcp", chain = "forward", action = "accept", in_interface_list = "RESTRICTED", dst_address = local.pihole_ip, protocol = "tcp", dst_port = "53" },
+    # Home Assistant controls the TV, which is a client (it runs Jellyfin), so it alone gets through to it
+    { key = "forward-ha-tv", chain = "forward", action = "accept", src_address = local.shared.guests.homeassistant.ip, dst_address = local.static_leases.living-room-tv.ip },
   ]
 }
 
@@ -33,6 +35,7 @@ resource "routeros_ip_firewall_filter" "rule" {
   connection_state     = lookup(each.value, "connection_state", null)
   connection_nat_state = lookup(each.value, "connection_nat_state", null)
   protocol             = lookup(each.value, "protocol", null)
+  src_address          = lookup(each.value, "src_address", null)
   dst_address          = lookup(each.value, "dst_address", null)
   dst_port             = lookup(each.value, "dst_port", null)
   in_interface         = lookup(each.value, "in_interface", null)

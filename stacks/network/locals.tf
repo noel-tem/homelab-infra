@@ -27,9 +27,11 @@ locals {
       vlan = local.shared.guests.homeassistant.vlan
     }
 
-    # Carried over from the old router's reservations, at the same addresses
-    dennis          = { mac = "78:AF:08:66:CC:9F", ip = "192.168.0.58" }
-    desktop-qames3t = { mac = "B4:2E:99:FD:DF:DE", ip = "192.168.0.43" }
-    dennis-thinkpad = { mac = "50:7B:9D:75:29:1A", ip = "192.168.0.154" } # its wired port
+    # Carried over from the old router's reservations, keeping their last octet on clients
+    dennis          = { mac = "78:AF:08:66:CC:9F", ip = cidrhost(local.vlans.clients.subnet, 58), vlan = "clients" }
+    desktop-qames3t = { mac = "B4:2E:99:FD:DF:DE", ip = cidrhost(local.vlans.clients.subnet, 43), vlan = "clients" }
+    dennis-thinkpad = { mac = "50:7B:9D:75:29:1A", ip = cidrhost(local.vlans.clients.subnet, 154), vlan = "clients" } # its wired port
+    # Fixed so Home Assistant can be let through to it (firewall.tf)
+    living-room-tv = { mac = "20:1F:3B:1B:37:40", ip = cidrhost(local.vlans.clients.subnet, 144), vlan = "clients" }
   }
 }
