@@ -47,6 +47,8 @@ guests:
   # Sonarr, Radarr, Prowlarr, FlareSolverr, Bazarr, Seerr and qBittorrent behind Surfshark (roles/arr)
   # Shares jellyfin's media, so it has to be on media_node too
   arr: { vmid: 114, ip: 10.42.20.31, vlan: media, node: live-laugh-nicolekidman }
+  # CouchDB for Obsidian LiveSync (roles/livesync); no failover, since every synced device holds the whole vault
+  livesync: { vmid: 116, ip: 192.168.0.33, node: live-laugh-tomcruise }
 # The repo CI runs for; the runner registers with this Gitea and the deployer pulls from it
 gitea_url: http://{{ guests.gitea.ip }}:3000
 gitea_repo: noeltem/homelab-infra
@@ -65,6 +67,7 @@ proxied_services:
   qbit: "{{ guests.arr.ip }}:8080"
   sabnzbd: "{{ guests.arr.ip }}:8085"
   seerr: "{{ guests.arr.ip }}:5055"
+  livesync: "{{ guests.livesync.ip }}:5984"
   # PBS only serves HTTPS
   pbs: "https://{{ guests.pbs.ip }}:8007"
   pbs2: "https://{{ guests.pbs2.ip }}:8007"

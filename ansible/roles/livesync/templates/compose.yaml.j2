@@ -1,0 +1,13 @@
+# Managed by Ansible (roles/livesync)
+services:
+  couchdb:
+    image: {{ livesync_image }}
+    container_name: couchdb
+    restart: unless-stopped
+    # COUCHDB_USER and COUCHDB_PASSWORD; the image adds the admin to docker.ini on first start, and CouchDB hashes it
+    env_file: couchdb.env
+    ports:
+      - 5984:5984
+    volumes:
+      - {{ livesync_data }}/data:/opt/couchdb/data
+      - {{ livesync_data }}/local.d:/opt/couchdb/etc/local.d

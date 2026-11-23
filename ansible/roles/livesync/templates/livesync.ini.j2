@@ -1,0 +1,30 @@
+; Managed by Ansible (roles/livesync); the settings Self-hosted LiveSync needs
+; Sorts before docker.ini, which CouchDB writes its own changes to (the hashed admin password, its uuid and secret)
+
+[couchdb]
+single_node = true
+; Bigger notes and attachments than the default 8 MB
+max_document_size = 50000000
+
+[chttpd]
+require_valid_user = true
+max_http_request_size = 4294967296
+enable_cors = true
+
+[chttpd_auth]
+require_valid_user = true
+authentication_redirect = /_utils/session.html
+
+[httpd]
+WWW-Authenticate = Basic realm="couchdb"
+bind_address = any
+; CouchDB 3 only reads chttpd's, but the plugin's settings check looks for this one too, and its fix button writes
+; it to docker.ini, where it would override this file
+enable_cors = true
+
+[cors]
+origins = {{ livesync_cors_origins | join(', ') }}
+credentials = true
+headers = accept, authorization, content-type, origin, referer
+methods = GET, PUT, POST, HEAD, DELETE
+max_age = 3600

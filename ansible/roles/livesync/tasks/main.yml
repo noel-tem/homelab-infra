@@ -1,0 +1,105 @@
+- name: Add Docker apt repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/debian
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: stable
+    signed_by: https://download.docker.com/linux/debian/gpg
+  register: livesync_docker_repo
+
+- name: Install Docker
+  ansible.builtin.apt:
+    name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+    update_cache: true
+    # A fresh repo isn't in the cache yet, even if the cache is under an hour old
+    cache_valid_time: "{{ 0 if livesync_docker_repo is changed else 3600 }}"
+
+# Keeps container logs from filling the root disk
+- name: Cap container logs
+  ansible.builtin.copy:
+    content: |
+      {
+        "log-driver": "local",
+        "log-opts": { "max-size": "10m", "max-file": "3" }
+      }
+    dest: /etc/docker/daemon.json
+    mode: "0644"
+  register: livesync_docker_config
+
+- name: Enable and start Docker
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: "{{ 'restarted' if livesync_docker_config is changed else 'started' }}"
+
+- name: Create compose directory
+  ansible.builtin.file:
+    path: "{{ livesync_path }}"
+    state: directory
+    mode: "0750"
+
+# Owned and moded the way the image's entrypoint leaves them, so reruns don't fight it
+- name: Create data and config directories
+  ansible.builtin.file:
+    path: "{{ livesync_data }}/{{ item }}"
+    state: directory
+    owner: "{{ livesync_couchdb_uid }}"
+    group: "{{ livesync_couchdb_uid }}"
+    mode: "0755"
+  loop: [data, local.d]
+
+- name: Write CouchDB settings
+  ansible.builtin.template:
+    src: livesync.ini.j2
+    dest: "{{ livesync_data }}/local.d/10-livesync.ini"
+    owner: "{{ livesync_couchdb_uid }}"
+    group: "{{ livesync_couchdb_uid }}"
+    mode: "0644"
+  register: livesync_ini
+
+- name: Check for the admin secrets
+  ansible.builtin.stat:
+    path: "{{ livesync_path }}/couchdb.env"
+  register: livesync_env
+
+# Set once; CouchDB keeps the hashed password in local.d/docker.ini, so changing it later is done in CouchDB
+# (README: Obsidian LiveSync), not here
+- name: Write the admin secrets
+  when: not livesync_env.stat.exists
+  block:
+    - name: Require the admin password
+      ansible.builtin.assert:
+        that: livesync_admin_password | length > 0
+        fail_msg: Set LIVESYNC_COUCHDB_PASSWORD to create {{ livesync_path }}/couchdb.env
+
+    - name: Write couchdb.env
+      ansible.builtin.copy:
+        content: |
+          COUCHDB_USER={{ livesync_admin_user }}
+          COUCHDB_PASSWORD={{ livesync_admin_password }}
+        dest: "{{ livesync_path }}/couchdb.env"
+        mode: "0600"
+      no_log: true
+
+- name: Write compose file
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ livesync_path }}/compose.yaml"
+    mode: "0644"
+
+# Recreates the container only if its config, env or image tag changed
+- name: Start CouchDB
+  ansible.builtin.command: docker compose up --detach --remove-orphans
+  args:
+    chdir: "{{ livesync_path }}"
+  register: livesync_up
+  changed_when: livesync_up.stderr is search('Created|Recreated|Started|Removed')
+
+# CouchDB only reads its ini files at startup
+- name: Restart CouchDB for new settings
+  ansible.builtin.command: docker compose restart couchdb
+  args:
+    chdir: "{{ livesync_path }}"
+  changed_when: true
+  when: livesync_ini is changed and livesync_up is not changed

@@ -34,3 +34,4 @@ all:
         runner:
         deployer:
         arr:
+        livesync:

@@ -22,6 +22,7 @@ Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` 
 | Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
 | Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
 | Arr | 114 | 10.42.20.31 (media VLAN) | https://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, sabnzbd, seerr | On `live-laugh-nicolekidman`; Docker Compose stack with two download clients, one behind a VPN (see [Media](#media)) |
+| LiveSync | 116 | http://192.168.0.33:5984/_utils | https://livesync.home.arpa | On `live-laugh-tomcruise`; CouchDB for Obsidian's Self-hosted LiveSync plugin, no HA (see [Obsidian LiveSync](#obsidian-livesync)) |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -263,9 +264,10 @@ export PIHOLE_PASSWORD=...                  # Pi-hole web UI; only read when Ans
 export DEPLOYER_GITEA_TOKEN=...             # the deployer bot's Gitea token (see CI)
 export SURFSHARK_WIREGUARD_PRIVATE_KEY=...  # VPN WireGuard private key (see Media); only read when arr is first set up
 export SURFSHARK_WIREGUARD_ADDRESS=...      # the Address line of the VPN's WireGuard config, e.g. 10.14.0.2/16
+export LIVESYNC_COUCHDB_PASSWORD=...        # CouchDB admin for Obsidian LiveSync; only read when livesync is first set up
 ```
 
-`playbooks/ci.yml` copies all of these except the Tailscale ones to the deployer. It stops if any is unset, except the ones that are only read on first setup (`INFLUXDB_PASSWORD`, `PBS_ADMIN_PASSWORD`, `PIHOLE_PASSWORD` and the two `SURFSHARK_` ones), which it copies only if set.
+`playbooks/ci.yml` copies all of these except the Tailscale ones to the deployer. It stops if any is unset, except the ones that are only read on first setup (`INFLUXDB_PASSWORD`, `PBS_ADMIN_PASSWORD`, `PIHOLE_PASSWORD`, the two `SURFSHARK_` ones and `LIVESYNC_COUCHDB_PASSWORD`), which it copies only if set.
 
 ## Usage
 
@@ -371,6 +373,22 @@ mkdir /mnt/pool/media && chown 100000:102000 /mnt/pool/media && chmod 2775 /mnt/
 - systemd reads the pool's first branch as a path, so the pool requires that disk to mount; the youngest disk (`disk2`) goes first, and the other two are only waited for (`x-systemd.after`). `nofail` lets the node boot with a disk missing.
 - `100000:102000` is the containers' root and `library` group as the host sees them.
 - The media folders (`media_dirs` in `group_vars/all.yml`) are made by Ansible on the node, not in the containers: on the pool, a container's root acts as its host user (100000), which can't change owners, so creating them from inside fails.
+
+### Obsidian LiveSync
+
+`playbooks/livesync.yml` runs CouchDB (`couchdb` image, tag in [`roles/livesync/defaults/main.yml`](ansible/roles/livesync/defaults/main.yml)) in Docker Compose, with the settings the [Self-hosted LiveSync](https://github.com/vrtmrz/obsidian-livesync) plugin needs: single node, valid user required, CORS for the Obsidian apps, and large documents allowed. The data is under `/var/lib/livesync` on the container's root disk.
+
+First setup: put `LIVESYNC_COUCHDB_PASSWORD` in `.env`, `tofu apply` in `stacks/homelab`, then run `playbooks/livesync.yml`, `caddy.yml` and `pihole.yml`. The first run writes the admin login to `/opt/livesync/couchdb.env`, and CouchDB keeps a hashed copy in `/var/lib/livesync/local.d/docker.ini`. To change the password later, do it in CouchDB (Fauxton at http://192.168.0.33:5984/_utils → the user menu), not in `.env`.
+
+In Obsidian, install Self-hosted LiveSync and run its setup wizard with:
+
+- URI `https://livesync.home.arpa`, username `obsidian`, the password above
+- A database name per vault, e.g. `notes`. The plugin creates it.
+- End-to-end encryption on, with a passphrase you keep somewhere else. The database and its backups then only hold encrypted chunks.
+
+Then copy the setup URI it offers to the other devices. Mobile apps only sync over HTTPS, so each phone needs Caddy's root certificate (see [HTTPS](#https)). Away from home it works over Tailscale, like the other `.home.arpa` names.
+
+Backups: every synced device holds the whole vault. The nightly PBS job also covers the container, with pbs2's copy on top (see [Backups](#backups)). CouchDB only appends to its files, so a snapshot taken while it runs restores cleanly. Restoring a backup rolls back the whole database, so to recover one note, use the plugin's history or the file on another device instead.
 
 ### Monitoring
 

@@ -1,0 +1,16 @@
+- name: Find the node each container is on
+  ansible.builtin.import_playbook: locate-guests.yml
+
+- name: Configure Obsidian LiveSync
+  hosts: livesync
+  # Gathered below, once it's known to be running
+  gather_facts: false
+  pre_tasks:
+    - name: Skip livesync while it's switched off
+      ansible.builtin.meta: end_host
+      when: not guests.livesync.running | default(true)
+
+    - name: Gather facts
+      ansible.builtin.setup:
+  roles:
+    - livesync
