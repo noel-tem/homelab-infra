@@ -1,6 +1,6 @@
 # homelab-infra
 
-Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` (192.168.0.50), `live-laugh-tomcruise` (192.168.0.51) and `live-laugh-nicolekidman` (192.168.0.52). Any one of them can be down without the cluster losing quorum.
+Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` (10.42.10.50), `live-laugh-tomcruise` (10.42.10.51) and `live-laugh-nicolekidman` (10.42.10.52). Any one of them can be down without the cluster losing quorum.
 
 - **OpenTofu** creates the guests (`stacks/homelab/`), owns the Tailscale key, route approval and split DNS (`stacks/tailnet/`), and configures the MikroTik router (`stacks/network/`).
 - **Ansible** (`ansible/`) configures everything inside them, plus the Proxmox nodes themselves.
@@ -163,7 +163,7 @@ The hAP routes four VLANs, listed in `vlans` in [`ansible/group_vars/all.yml`](a
 
 Each one's gateway is its `.1`. DHCP, on iot and clients, hands out `.100`–`.254` with Pi-hole for DNS. Replies always get back, so Caddy (or a client) can open Jellyfin's web UI, but nothing on media or iot can open a connection to the other VLANs or to the router, apart from DHCP. Services and clients can manage the router, like the flat LAN. To change who reaches what, edit `vlan_policy` in [`stacks/network/vlans.tf`](stacks/network/vlans.tf) and the rules in [`firewall.tf`](stacks/network/firewall.tf).
 
-Guests move one group at a time: iot, media and clients (done), then the services guests (steps below), and the nodes last. A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
+Guests moved one group at a time: iot, media, clients, the services guests, then the nodes (steps below). A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
 
 The IoT gadgets have their own SSID, `TF_VAR_wifi_iot_ssid`, on 2.4 GHz only, with its own WPA2 passphrase, so they never learn the main one. It's untagged into VLAN 30. The router repeats mDNS between the flat LAN, clients and iot, so phones still find the Google speakers to cast to. Pi-hole answers lookups from every VLAN (`pihole_listening_mode: ALL` in [`roles/pihole`](ansible/roles/pihole/defaults/main.yml)). Its default only answers its own subnet and silently drops the rest.
 
@@ -218,6 +218,23 @@ Moving Pi-hole, Caddy and the rest of the services guests onto services, once. E
    - In Uptime Kuma, fix any monitor that uses an IP address rather than a name.
 6. A few days later, once every lease has renewed, delete `old_pihole` from `firewall.tf` and `tofu apply` in `stacks/network`.
 
+Moving the nodes onto services, once. Their `/etc/network/interfaces` is edited by hand, not by Ansible: a bad run would cut a node off, and the deployer runs `site.yml` on every merge. Each node ends up with `vmbr0` as `inet manual` (still VLAN-aware, carrying the guests) and its address on `vmbr0.10`:
+
+```
+auto vmbr0.10
+iface vmbr0.10 inet static
+	address 10.42.10.50/24
+	gateway 10.42.10.1
+```
+
+1. Disarm HA so a corosync hiccup can't fence a node: `ha-manager crm-command disarm-ha freeze`, and wait for `ha-manager status` to show every watchdog released.
+2. On each node, add the `vmbr0.10` stanza above without the gateway and `ifreload -a`. Each node now answers on both addresses; check they ping each other and `10.42.10.1` on the new ones.
+3. In `/etc/pve/corosync.conf`, change every `ring0_addr` to the new address and bump `config_version`. Once `/etc/corosync/corosync.conf` shows it on every node, `systemctl restart corosync` on each in turn. The first one is alone until the others restart, which is why HA is disarmed.
+4. On each node, change its own line in `/etc/hosts`, `systemctl restart pve-cluster`, then `pvecm updatecerts --force && systemctl restart pveproxy` so the web UI's certificate has the new address.
+5. One node at a time, make `vmbr0` `inet manual` (drop its address and gateway), add `gateway 10.42.10.1` to `vmbr0.10` and `ifreload -a`. Run it detached (`systemd-run --on-active=2 /sbin/ifreload -a`) and arm a rollback first (`systemd-run --unit=rollback --on-active=180 sh -c 'cp <dual-homed copy> /etc/network/interfaces && ifreload -a'`), then reconnect on the new address and check the default route, the internet, `tailscale status` and `pvecm status` before stopping the timer.
+6. Change `PROXMOX_VE_ENDPOINT` in `.env` to `https://10.42.10.50:8006/` wherever Tofu runs, then `tofu plan` in `stacks/homelab` (no changes). `ansible-playbook playbooks/ci.yml` gives the deployer the new endpoint and known_hosts, and `tofu apply` in `stacks/tailnet` updates the node addresses in the ACL.
+7. `ha-manager crm-command arm-ha` and check `pvesr status` on each node.
+
 ## Layout
 
 ```
@@ -254,7 +271,7 @@ To switch Jellyfin or arr off, set `running: false` on it there: Tofu stops it a
 Secrets live in a gitignored `.env` at the repo root (loaded by direnv via `.envrc`):
 
 ```sh
-export PROXMOX_VE_ENDPOINT=https://192.168.0.50:8006/
+export PROXMOX_VE_ENDPOINT=https://10.42.10.50:8006/
 export PROXMOX_VE_API_TOKEN=user@realm!token=secret
 export TF_VAR_state_passphrase=...           # encrypts Tofu state and plans
 export TAILSCALE_OAUTH_CLIENT_ID=...
