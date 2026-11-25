@@ -9,11 +9,10 @@ arr_uid: "{{ media_uid }}"
 arr_timezone: America/Los_Angeles
 # Surfshark server location for gluetun, by country name (comma-separated for several)
 arr_vpn_countries: United States
-# Subnets gluetun routes outside the tunnel, so the web UIs can answer them: Caddy's (services), the clients that
-# open the UIs directly, media itself, where Jellyfin is, and the flat LAN, which tailnet traffic comes from while
-# the nodes' subnet routers are on it
+# Subnets gluetun routes outside the tunnel, so the web UIs can answer them: services, where Caddy is and where
+# tailnet traffic comes from (the nodes' subnet routers), the clients that open the UIs directly, and media itself,
+# where Jellyfin is
 arr_outbound_subnets:
-  - "{{ home_subnet }}"
   - "{{ vlans.services.subnet }}"
   - "{{ vlans.clients.subnet }}"
   - "{{ vlans.media.subnet }}"
