@@ -163,6 +163,54 @@ The hAP routes four VLANs, listed in `vlans` in [`ansible/group_vars/all.yml`](a
 
 Each one's gateway is its `.1`. DHCP, on iot and clients, hands out `.100`–`.254` with Pi-hole for DNS. Replies always get back, so Caddy (or a client) can open Jellyfin's web UI, but nothing on media or iot can open a connection to the other VLANs or to the router, apart from DHCP. Services and clients can manage the router, like the flat LAN. To change who reaches what, edit `vlan_policy` in [`stacks/network/vlans.tf`](stacks/network/vlans.tf) and the rules in [`firewall.tf`](stacks/network/firewall.tf).
 
+How it's wired. The router and switch keep their management addresses on VLAN 1; everything else is on a VLAN:
+
+```mermaid
+flowchart LR
+  isp["ISP gateway<br/>BGW320, IP Passthrough"] ---|ether1| hap["hAP ax3<br/>192.168.0.1, and each VLAN's .1"]
+  hap ---|"ether2: VLANs 10-40 tagged,<br/>VLAN 1 untagged"| sw["GS305E switch<br/>192.168.0.2"]
+  sw ---|trunk| homelab["live-laugh-homelab<br/>10.42.10.50"]
+  sw ---|trunk| tomcruise["live-laugh-tomcruise<br/>10.42.10.51"]
+  sw ---|trunk| nicolekidman["live-laugh-nicolekidman<br/>10.42.10.52"]
+  sw ---|"VLAN 40 untagged"| desktop["Desktop"]
+  hap ---|"ether3, ether4:<br/>VLAN 40 untagged"| wired["Wired clients"]
+  hap -.-|"main Wi-Fi: VLAN 40"| wifi["Phones, laptops, TV,<br/>Google speakers"]
+  hap -.-|"IoT SSID, 2.4 GHz: VLAN 30"| gadgets["Thermostat, Kasa plug"]
+```
+
+Who can open connections to whom. Thick arrows reach everything on the other side, dotted ones only what they're labelled with. Replies always get back, so these are only about who starts a connection:
+
+```mermaid
+flowchart LR
+  tailnet(["Tailnet"])
+  internet(["Internet"])
+  subgraph services["10 services · 10.42.10.0/24"]
+    nodes["Proxmox nodes .50-.52"]
+    pihole["Pi-hole .10"]
+    caddy["Caddy .21"]
+    rest["Gitea .22, Uptime Kuma .24, metrics .25,<br/>PBS .26, pbs2 .32, runner .29,<br/>deployer .30, LiveSync .33"]
+  end
+  subgraph clients["40 clients · DHCP"]
+    devices["Wi-Fi and wired devices"]
+    tv["Living Room TV .144"]
+  end
+  subgraph media["20 media · 10.42.20.0/24"]
+    jellyfin["Jellyfin .23"]
+    arr["arr .31"]
+  end
+  subgraph iot["30 iot · DHCP"]
+    ha["Home Assistant .83"]
+    mosquitto["Mosquitto .20"]
+    gadgets["Gadgets"]
+  end
+  services <==> clients
+  services & clients ==> media & iot
+  services & clients & media & iot --> internet
+  media & iot -.->|DNS| pihole
+  ha -.->|forward-ha-tv| tv
+  tailnet -->|the nodes' subnet routers| services & media
+```
+
 Guests moved one group at a time: iot, media, clients, the services guests, then the nodes (steps below). A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
 
 The IoT gadgets have their own SSID, `TF_VAR_wifi_iot_ssid`, on 2.4 GHz only, with its own WPA2 passphrase, so they never learn the main one. It's untagged into VLAN 30. The router repeats mDNS between the flat LAN, clients and iot, so phones still find the Google speakers to cast to. Pi-hole answers lookups from every VLAN (`pihole_listening_mode: ALL` in [`roles/pihole`](ansible/roles/pihole/defaults/main.yml)). Its default only answers its own subnet and silently drops the rest.
