@@ -76,6 +76,24 @@ resource "routeros_ip_firewall_nat" "masquerade" {
   comment            = "lan-to-wan"
 }
 
+# TEMPORARY, from Pi-hole's move to services (README: VLANs, phase 5): devices keep the old DNS server from their
+# DHCP lease for up to a day, so their queries to it are sent on to Pi-hole's new address. Doesn't help the flat
+# LAN itself, which reaches the old address without the router. Remove once every lease has renewed
+locals {
+  old_pihole_ip = "192.168.0.10"
+}
+
+resource "routeros_ip_firewall_nat" "old_pihole" {
+  for_each     = toset(["udp", "tcp"])
+  chain        = "dstnat"
+  action       = "dst-nat"
+  dst_address  = local.old_pihole_ip
+  protocol     = each.key
+  dst_port     = "53"
+  to_addresses = local.pihole_ip
+  comment      = "old-pihole-${each.key}"
+}
+
 # No IPv6 until it has a firewall of its own; the old router didn't route it to the LAN either
 resource "routeros_ipv6_settings" "this" {
   disable_ipv6 = true

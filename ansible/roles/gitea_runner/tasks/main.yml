@@ -90,6 +90,15 @@
       changed_when: true
       notify: Restart Gitea runner
 
+# Registration saves Gitea's address in .runner, so follow it when Gitea moves (a renumber, say)
+- name: Point the registration at Gitea's current address
+  ansible.builtin.replace:
+    path: "{{ gitea_runner_home }}/.runner"
+    regexp: '"address":\s*"[^"]*"'
+    replace: '"address": "{{ gitea_url }}"'
+  when: not ansible_check_mode or gitea_runner_registration.stat.exists
+  notify: Restart Gitea runner
+
 - name: Write systemd unit
   ansible.builtin.template:
     src: gitea-runner.service.j2

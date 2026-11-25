@@ -20,6 +20,21 @@
   when: item.guest in pbs_storage_missing
   no_log: true
 
+# The address is the only thing compared, so a PBS that moves (a renumber, say) keeps working; pbs_storage_list
+# is from check.yml. pvesm won't change a PBS storage's server ("fixed parameter"), so this edits storage.cfg,
+# in place rather than through a temp file, since it's on /etc/pve
+- name: Point the storage at PBS's current address
+  ansible.builtin.shell: >-
+    cfg=$(sed '/^pbs: {{ item.storage_id }}$/,/^$/ s/^\tserver .*/\tserver {{ guests[item.guest].ip }}/' /etc/pve/storage.cfg)
+    && printf '%s\n' "$cfg" > /etc/pve/storage.cfg
+  vars:
+    pbs_storage_current: "{{ pbs_storage_list.stdout | from_json | selectattr('storage', '==', item.storage_id) | first }}"
+  loop: "{{ pbs_storage_servers }}"
+  changed_when: true
+  when:
+    - item.storage_id in pbs_storage_list.stdout | from_json | map(attribute='storage')
+    - pbs_storage_current.server != guests[item.guest].ip
+
 - name: Read backup jobs
   ansible.builtin.command: pvesh get /cluster/backup --output-format json
   register: pbs_storage_jobs

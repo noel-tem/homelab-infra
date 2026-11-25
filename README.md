@@ -9,20 +9,20 @@ Infrastructure for my home Proxmox cluster of three nodes: `live-laugh-homelab` 
 
 | Guest | ID | Direct address | Name | Notes |
 |---|---|---|---|---|
-| Pi-hole | 100 | http://192.168.0.10/admin | https://pihole.home.arpa | LAN DNS (port 53); holds the `*.home.arpa` records |
+| Pi-hole | 100 | http://10.42.10.10/admin | https://pihole.home.arpa | LAN DNS (port 53); holds the `*.home.arpa` records |
 | Home Assistant OS | 102 | http://10.42.30.83:8123 (iot VLAN) | https://homeassistant.home.arpa | VM from community-scripts, imported into Tofu |
 | Mosquitto | 104 | `mqtt://10.42.30.20:1883` (iot VLAN) | — | MQTT broker, no Ansible config yet |
-| Caddy | 105 | http://192.168.0.21 | — | HTTPS reverse proxy for every `*.home.arpa` name; the direct address serves its root certificate (see [HTTPS](#https)) |
-| Gitea | 106 | http://192.168.0.22:3000 | https://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
-| Jellyfin | 107 | http://10.42.20.23:8096 (media VLAN) | https://jellyfin.home.arpa | On `live-laugh-nicolekidman`; iGPU passthrough; the media on its mergerfs pool (shared with arr), also over SMB at `\\192.168.0.23\media` |
-| Uptime Kuma | 108 | http://192.168.0.24:3001 | https://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
-| Metrics | 109 | http://192.168.0.25:3000 | https://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
-| Proxmox Backup Server | 110 | https://192.168.0.26:8007 | https://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
-| Proxmox Backup Server 2 | 115 | https://192.168.0.32:8007 | https://pbs2.home.arpa | On `live-laugh-nicolekidman`; a second copy of every backup, on its 1 TB HDD (see [Backups](#backups)) |
-| Runner | 112 | 192.168.0.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
-| Deployer | 113 | 192.168.0.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
+| Caddy | 105 | http://10.42.10.21 | — | HTTPS reverse proxy for every `*.home.arpa` name; the direct address serves its root certificate (see [HTTPS](#https)) |
+| Gitea | 106 | http://10.42.10.22:3000 | https://gitea.home.arpa | On `live-laugh-tomcruise`; first visit runs the web installer |
+| Jellyfin | 107 | http://10.42.20.23:8096 (media VLAN) | https://jellyfin.home.arpa | On `live-laugh-nicolekidman`; iGPU passthrough; the media on its mergerfs pool (shared with arr), also over SMB at `\\10.42.20.23\media` |
+| Uptime Kuma | 108 | http://10.42.10.24:3001 | https://uptime.home.arpa | Uptime checks and alerts; first visit creates the admin account |
+| Metrics | 109 | http://10.42.10.25:3000 | https://grafana.home.arpa | Grafana (first login `admin`/`admin`) + InfluxDB on :8086, fed by Proxmox |
+| Proxmox Backup Server | 110 | https://10.42.10.26:8007 | https://pbs.home.arpa | On `live-laugh-tomcruise`; datastore filling its 1 TB SSD. Log in as `admin@pbs` |
+| Proxmox Backup Server 2 | 115 | https://10.42.10.32:8007 | https://pbs2.home.arpa | On `live-laugh-nicolekidman`; a second copy of every backup, on its 1 TB HDD (see [Backups](#backups)) |
+| Runner | 112 | 10.42.10.29 | — | Gitea Actions runner for Claude and lint jobs; no infra credentials (see [CI](#ci)) |
+| Deployer | 113 | 10.42.10.30 | — | Applies every new commit on `main` (see [CI](#ci)) |
 | Arr | 114 | 10.42.20.31 (media VLAN) | https://sonarr.home.arpa, radarr, prowlarr, bazarr, qbit, sabnzbd, seerr | On `live-laugh-nicolekidman`; Docker Compose stack with two download clients, one behind a VPN (see [Media](#media)) |
-| LiveSync | 116 | http://192.168.0.33:5984/_utils | https://livesync.home.arpa | On `live-laugh-tomcruise`; CouchDB for Obsidian's Self-hosted LiveSync plugin, no HA (see [Obsidian LiveSync](#obsidian-livesync)) |
+| LiveSync | 116 | http://10.42.10.33:5984/_utils | https://livesync.home.arpa | On `live-laugh-tomcruise`; CouchDB for Obsidian's Self-hosted LiveSync plugin, no HA (see [Obsidian LiveSync](#obsidian-livesync)) |
 
 The direct addresses and the `.home.arpa` names work anywhere the LAN is reachable, including over Tailscale.
 
@@ -30,7 +30,7 @@ Everything except Home Assistant is an unprivileged Debian 13 LXC built from [`m
 
 ### How names resolve
 
-Pi-hole points every `<name>.home.arpa` at Caddy (`192.168.0.21`), and Caddy proxies it to the right `ip:port`. Both are driven by `proxied_services` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), so adding a service there is all it takes to give it a name.
+Pi-hole points every `<name>.home.arpa` at Caddy (`10.42.10.21`), and Caddy proxies it to the right `ip:port`. Both are driven by `proxied_services` in [`ansible/group_vars/all.yml`](ansible/group_vars/all.yml), so adding a service there is all it takes to give it a name.
 
 Note: the Pi-hole role overwrites the whole local DNS list, so records added in the Pi-hole web UI get replaced.
 
@@ -38,7 +38,7 @@ Note: the Pi-hole role overwrites the whole local DNS list, so records added in 
 
 Caddy serves every name over HTTPS and redirects `http://` to it. No public CA issues certificates for `home.arpa`, so Caddy runs its own CA and signs a certificate for each name. Browsers only trust them once Caddy's root certificate is installed, once per device:
 
-- Download it from http://192.168.0.21 (any path gives you `root.crt`), on the LAN or over Tailscale.
+- Download it from http://10.42.10.21 (any path gives you `root.crt`), on the LAN or over Tailscale.
 - **Windows**: open it → Install Certificate → Local Machine → "Trusted Root Certification Authorities".
 - **macOS**: open it in Keychain Access, then set it to "Always Trust".
 - **iOS**: open the link in Safari and install the profile, then turn it on under Settings → General → About → Certificate Trust Settings.
@@ -51,7 +51,7 @@ The root lasts 10 years. Caddy keeps it in `/var/lib/caddy/.local/share/caddy/pk
 
 There's one of each. Pi-hole's upstreams and blocklists come from [`ansible/roles/pihole/defaults/main.yml`](ansible/roles/pihole/defaults/main.yml) and its local records from `proxied_services`; change blocklists there, not in the web UI, since the next run replaces them. Allowlists and anything else set in the UI are kept.
 
-Every container, the tailnet's split DNS and the router's DHCP (set on the router) use `192.168.0.10`. Until 2026-11 there was a second Pi-hole and Caddy on another node, with keepalived moving a VIP between the Caddys; Proxmox HA replaced them (see below).
+Every container, the tailnet's split DNS and the router's DHCP (set on the router) use `10.42.10.10`. Until 2026-11 there was a second Pi-hole and Caddy on another node, with keepalived moving a VIP between the Caddys; Proxmox HA replaced them (see below).
 
 ### High availability
 
@@ -91,7 +91,7 @@ What to expect:
 
 ### Remote access
 
-Every Proxmox node runs Tailscale as a subnet router advertising `192.168.0.0/24`, so the tailnet fails over if one node is down. Tofu mints an auth key per node and approves each route; Ansible installs Tailscale and joins the nodes. Nothing inside the containers runs Tailscale.
+Every Proxmox node runs Tailscale as a subnet router advertising the flat LAN `192.168.0.0/24` and the services and media VLANs (`tailnet_vlans` in [`all.yml`](ansible/group_vars/all.yml)), so the tailnet fails over if one node is down. iot and clients aren't reachable from the tailnet. Tofu mints an auth key per node and approves each route; Ansible installs Tailscale and joins the nodes. Nothing inside the containers runs Tailscale.
 
 The tailnet policy (ACLs, tag owners, SSH rules) lives in [`stacks/tailnet/policy.hujson.tftpl`](stacks/tailnet/policy.hujson.tftpl). Edit it there, not in the admin console: the next `tofu apply` overwrites console changes.
 
@@ -137,7 +137,7 @@ The GS305E is configured in its web UI. Find it with Netgear's Switch Discovery 
 
 1. Log in with the default password, `password`, and change it.
 2. Update its firmware (System → Maintenance → Firmware Upgrade).
-3. Give it the static address `192.168.0.2/24`, gateway `192.168.0.1`, DNS `192.168.0.10` (System → Management → IP Configuration).
+3. Give it the static address `192.168.0.2/24` and gateway `192.168.0.1` (System → Management → Switch Information: DHCP Mode off). It has no DNS setting.
 
 Leave VLANs alone for now: out of the box, every port is untagged on VLAN 1. Its web UI is plain HTTP, so only log in to it from the LAN.
 4. Turn on the VLANs (VLAN → 802.1Q → Advanced → Enable). Add VLANs 10, 20, 30 and 40 under VLAN Configuration. Under VLAN Membership, make each of them **tagged** (T) on the uplink to the hAP and on the three node ports. Leave VLAN 1 untagged on every port and every PVID at 1, so the flat LAN, and the switch's own address on it, carry on as before.
@@ -163,7 +163,7 @@ The hAP routes four VLANs, listed in `vlans` in [`ansible/group_vars/all.yml`](a
 
 Each one's gateway is its `.1`. DHCP, on iot and clients, hands out `.100`–`.254` with Pi-hole for DNS. Replies always get back, so Caddy (or a client) can open Jellyfin's web UI, but nothing on media or iot can open a connection to the other VLANs or to the router, apart from DHCP. Services and clients can manage the router, like the flat LAN. To change who reaches what, edit `vlan_policy` in [`stacks/network/vlans.tf`](stacks/network/vlans.tf) and the rules in [`firewall.tf`](stacks/network/firewall.tf).
 
-Guests move one group at a time: iot and media (done), then clients (steps below), and the nodes and services last. A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
+Guests move one group at a time: iot, media and clients (done), then the services guests (steps below), and the nodes last. A guest's `vlan` in `all.yml` puts it on one, with `ip` in that VLAN's subnet.
 
 The IoT gadgets have their own SSID, `TF_VAR_wifi_iot_ssid`, on 2.4 GHz only, with its own WPA2 passphrase, so they never learn the main one. It's untagged into VLAN 30. The router repeats mDNS between the flat LAN, clients and iot, so phones still find the Google speakers to cast to. Pi-hole answers lookups from every VLAN (`pihole_listening_mode: ALL` in [`roles/pihole`](ansible/roles/pihole/defaults/main.yml)). Its default only answers its own subnet and silently drops the rest.
 
@@ -204,6 +204,19 @@ Moving the main Wi-Fi and the wired clients onto clients, once. Every Wi-Fi devi
 4. From any client: add `ether3` and `ether4` to `client_ports` in [`stacks/network/vlans.tf`](stacks/network/vlans.tf) and `tofu apply`.
 
 Home Assistant still controls the TV, which is a client because it runs the Jellyfin app: `forward-ha-tv` in [`firewall.tf`](stacks/network/firewall.tf) lets Home Assistant, and nothing else on iot, through to the TV's reserved address.
+
+Moving Pi-hole, Caddy and the rest of the services guests onto services, once. Every one gets a new address, so DNS and the `*.home.arpa` names are down from the first step until the third. Run it from a client, not the flat LAN. Step 2 needs DNS to reach the state bucket, but the machine running it still asks Pi-hole's old address, so first point that machine at a public resolver (in an admin PowerShell, `Set-DnsClientServerAddress -InterfaceAlias Wi-Fi -ServerAddresses 1.1.1.1`) and set it back to automatic (`-ResetServerAddresses`) after step 2:
+
+1. `tofu apply` in `stacks/homelab`. Each guest gets its `10.42.10.x` address and VLAN tag, and every container's DNS points at Pi-hole's new one.
+2. Straight after, `tofu apply` in `stacks/network`. DHCP hands out Pi-hole's new address, and the iot and media DNS rules follow it. Devices keep the old address from their lease for up to a day, so `old_pihole` in [`firewall.tf`](stacks/network/firewall.tf) sends their queries for `192.168.0.10` on to the new one. That doesn't cover the flat LAN, which reaches the old address without the router.
+3. `ansible-playbook site.yml`. It points the Pi-hole records at Caddy's new address, the Proxmox storage at both PBS servers, pbs2's pull at pbs, the runner and deployer at Gitea, and the subnet routers at the new routes.
+4. `tofu apply` in `stacks/tailnet`. It approves the new routes and sends tailnet `home.arpa` lookups to Pi-hole's new address.
+5. By hand:
+   - In Home Assistant's HTTP settings (in the UI since 2026.10, which ignores `configuration.yaml` for them), make the trusted proxy Caddy's new address, `10.42.10.21`. Until then, `homeassistant.home.arpa` gives a 400. Adding it next to `192.168.0.21` before step 1 avoids the gap.
+   - On each node, `sed -i s/192.168.0.10/10.42.10.10/ /etc/resolv.pre-tailscale-backup.conf && systemctl restart tailscaled`. Tailscale's resolver falls back to that file for everything outside `home.arpa`; `tailscale dns status` lists it under System DNS configuration. The nodes are still on the flat LAN, so the redirect in step 2 doesn't reach them.
+   - In every clone of this repo, `git remote set-url origin http://10.42.10.22:3000/noeltem/homelab-infra.git`.
+   - In Uptime Kuma, fix any monitor that uses an IP address rather than a name.
+6. A few days later, once every lease has renewed, delete `old_pihole` from `firewall.tf` and `tofu apply` in `stacks/network`.
 
 ## Layout
 
@@ -378,7 +391,7 @@ mkdir /mnt/pool/media && chown 100000:102000 /mnt/pool/media && chmod 2775 /mnt/
 
 `playbooks/livesync.yml` runs CouchDB (`couchdb` image, tag in [`roles/livesync/defaults/main.yml`](ansible/roles/livesync/defaults/main.yml)) in Docker Compose, with the settings the [Self-hosted LiveSync](https://github.com/vrtmrz/obsidian-livesync) plugin needs: single node, valid user required, CORS for the Obsidian apps, and large documents allowed. The data is under `/var/lib/livesync` on the container's root disk.
 
-First setup: put `LIVESYNC_COUCHDB_PASSWORD` in `.env`, `tofu apply` in `stacks/homelab`, then run `playbooks/livesync.yml`, `caddy.yml` and `pihole.yml`. The first run writes the admin login to `/opt/livesync/couchdb.env`, and CouchDB keeps a hashed copy in `/var/lib/livesync/local.d/docker.ini`. To change the password later, do it in CouchDB (Fauxton at http://192.168.0.33:5984/_utils → the user menu), not in `.env`.
+First setup: put `LIVESYNC_COUCHDB_PASSWORD` in `.env`, `tofu apply` in `stacks/homelab`, then run `playbooks/livesync.yml`, `caddy.yml` and `pihole.yml`. The first run writes the admin login to `/opt/livesync/couchdb.env`, and CouchDB keeps a hashed copy in `/var/lib/livesync/local.d/docker.ini`. To change the password later, do it in CouchDB (Fauxton at http://10.42.10.33:5984/_utils → the user menu), not in `.env`.
 
 In Obsidian, install Self-hosted LiveSync and run its setup wizard with:
 

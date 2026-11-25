@@ -1,4 +1,5 @@
-# Tailscale on every Proxmox node advertises the home LAN; the tailnet fails over between them
+# Tailscale on every Proxmox node advertises the home LAN and the services and media VLANs (local.routes);
+# the tailnet fails over between them
 resource "tailscale_tailnet_key" "subnet_router" {
   for_each      = local.nodes
   reusable      = false
@@ -38,7 +39,7 @@ locals {
 resource "tailscale_device_subnet_routes" "subnet_router" {
   for_each  = local.subnet_routers
   device_id = each.value.node_id
-  routes    = [local.shared.home_subnet]
+  routes    = local.routes
 }
 
 moved {

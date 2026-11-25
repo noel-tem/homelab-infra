@@ -12,7 +12,9 @@ module "pihole" {
   start_on_boot    = local.pihole_running
   node_name        = local.guests.pihole.node
   template_file_id = local.debian_template[local.guests.pihole.node]
-  ipv4_address     = "${local.guests.pihole.ip}/24"
+  ipv4_address     = "${local.guests.pihole.ip}/${local.guest_prefixes.pihole}"
+  ipv4_gateway     = local.guest_gateways.pihole
+  vlan_id          = local.guest_networks.pihole.vlan_id
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers = local.pihole_ips
   disk_size   = 8
