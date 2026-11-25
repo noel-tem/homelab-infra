@@ -56,7 +56,7 @@
   loop_control:
     label: "{{ item.label }}"
 
-# Never wipes a disk holding something else (e.g. the old hdd volume group): tear that down by hand first (README: Media)
+# Never wipes a disk holding something else (e.g. the old hdd volume group): tear that down by hand first
 - name: Refuse to format a disk that's in use
   ansible.builtin.assert:
     that: item.stdout in ['', 'ext4']

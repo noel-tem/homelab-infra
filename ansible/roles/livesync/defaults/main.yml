@@ -8,7 +8,7 @@ livesync_image: couchdb:3.5.3
 livesync_couchdb_uid: 5984
 # The account the LiveSync plugin logs in as
 livesync_admin_user: obsidian
-# Only read when the secrets file doesn't exist yet, so it never needs to be in the repo (README: Obsidian LiveSync)
+# Only read when the secrets file doesn't exist yet, so it never needs to be in the repo
 livesync_admin_password: "{{ lookup('ansible.builtin.env', 'LIVESYNC_COUCHDB_PASSWORD') }}"
 # Where the Obsidian apps send requests from: desktop, iOS and Android
 livesync_cors_origins: [app://obsidian.md, capacitor://localhost, http://localhost]

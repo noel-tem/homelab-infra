@@ -19,7 +19,7 @@
   loop: "{{ media_mount_guests }}"
   when: guests[item].node == inventory_hostname
 
-# Never replaces a mount point it didn't make, e.g. the old LVM media volume (README: Media)
+# Never replaces a mount point it didn't make, e.g. the old LVM media volume
 - name: Refuse to replace another mount point
   ansible.builtin.assert:
     that: >-

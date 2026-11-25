@@ -7,7 +7,7 @@ terraform {
   }
 }
 
-# The REST API over www-ssl, whose certificate the bootstrap self-signs (README: Router), hence insecure.
+# The REST API over www-ssl, whose certificate bootstrap.rsc self-signs, hence insecure.
 # Variables rather than the provider's ROS_* env vars, since it requires these even for tofu validate
 provider "routeros" {
   hosturl  = var.router_url

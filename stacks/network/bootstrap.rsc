@@ -1,5 +1,5 @@
-# Run once on the hAP ax3 after `/system reset-configuration no-defaults=yes`, pasted into WinBox's terminal
-# (README: Router). It sets up just enough for Tofu to connect, on ether5, which Tofu keeps out of the bridge as
+# Run once on the hAP ax3 after `/system reset-configuration no-defaults=yes`, pasted into WinBox's terminal.
+# It sets up just enough for Tofu to connect, on ether5, which Tofu keeps out of the bridge as
 # the management port. Everything else is stacks/network. The tofu user is added by hand afterwards, so its password
 # isn't in this file.
 

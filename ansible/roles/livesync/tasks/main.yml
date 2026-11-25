@@ -63,8 +63,7 @@
     path: "{{ livesync_path }}/couchdb.env"
   register: livesync_env
 
-# Set once; CouchDB keeps the hashed password in local.d/docker.ini, so changing it later is done in CouchDB
-# (README: Obsidian LiveSync), not here
+# Set once; CouchDB keeps the hashed password in local.d/docker.ini, so changing it later is done in CouchDB, not here
 - name: Write the admin secrets
   when: not livesync_env.stat.exists
   block:

@@ -28,7 +28,7 @@ resource "routeros_interface_list_member" "lan" {
 
 # VLAN-aware, so it carries the tagged VLANs in vlans.tf alongside the flat LAN, which is untagged VLAN 1 (every
 # port's default pvid). Turning this on resets the bridge for a second or two; if that cuts an apply off, apply
-# again (README: VLANs)
+# again
 resource "routeros_interface_bridge" "lan" {
   name           = "bridge"
   vlan_filtering = true

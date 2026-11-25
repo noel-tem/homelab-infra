@@ -1,5 +1,5 @@
 # The hAP ax3: the LAN's gateway, DHCP server and Wi-Fi. Kept apart from stacks/homelab so a guest change can
-# never take the network down, and never auto-applied by the deployer (README: Router)
+# never take the network down, and never auto-applied by the deployer
 locals {
   # The LAN, Pi-hole's address and Home Assistant's are shared with Ansible
   shared = yamldecode(file("${path.module}/../../ansible/group_vars/all.yml"))

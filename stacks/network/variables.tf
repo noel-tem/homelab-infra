@@ -29,7 +29,7 @@ variable "wifi_country" {
   description = "RouterOS's country name, e.g. \"United States\"; sets the allowed channels and power"
 }
 
-# Off while the hAP is staged next to the old router, so clients can't join a network with no internet (README: Router)
+# Off while the hAP is staged next to the old router, so clients can't join a network with no internet
 variable "wifi_enabled" {
   type    = bool
   default = true

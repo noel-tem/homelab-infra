@@ -30,7 +30,7 @@ locals {
   }
 
   # The LAN ports and radios on clients; ether2 (the switch) stays on the flat LAN (VLAN 1). The main Wi-Fi moved
-  # first, and ether3/ether4 in a separate apply, since moving the port Tofu runs through cuts it off (README: VLANs)
+  # first, and ether3/ether4 in a separate apply, since moving the port Tofu runs through cuts it off
   client_ports = concat(local.wifi_radios, ["ether3", "ether4"])
 }
 

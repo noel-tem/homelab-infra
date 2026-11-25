@@ -1,4 +1,4 @@
-# CouchDB for Obsidian's Self-hosted LiveSync plugin, in Docker Compose (README: Obsidian LiveSync)
+# CouchDB for Obsidian's Self-hosted LiveSync plugin, in Docker Compose
 # Ansible installs and runs it (ansible/roles/livesync); no HA, since every synced device holds a full copy of the vault
 locals {
   # Set with running in ansible/group_vars/all.yml, which the playbook reads too; false shuts the container

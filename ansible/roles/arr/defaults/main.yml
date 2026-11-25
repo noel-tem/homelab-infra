@@ -16,7 +16,7 @@ arr_outbound_subnets:
   - "{{ vlans.services.subnet }}"
   - "{{ vlans.clients.subnet }}"
   - "{{ vlans.media.subnet }}"
-# Only read when the secrets file doesn't exist yet, so they never need to be in the repo (README: Media)
+# Only read when the secrets file doesn't exist yet, so they never need to be in the repo
 arr_wireguard_private_key: "{{ lookup('ansible.builtin.env', 'SURFSHARK_WIREGUARD_PRIVATE_KEY') }}"
 arr_wireguard_address: "{{ lookup('ansible.builtin.env', 'SURFSHARK_WIREGUARD_ADDRESS') }}"
 # Seerr's image runs as its own node user, not PUID

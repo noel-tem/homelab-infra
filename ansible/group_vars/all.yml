@@ -17,7 +17,7 @@ vlans:
 # as plain YAML. iot and clients aren't reachable from the tailnet
 tailnet_vlans: [services, media]
 # Proxmox cluster nodes, keyed by node name; each is in the Ansible inventory and runs a subnet router. They're on
-# services, which /etc/network/interfaces sets by hand rather than through Ansible (README: VLANs)
+# services, which /etc/network/interfaces sets by hand rather than through Ansible
 nodes:
   live-laugh-homelab: { ip: 10.42.10.50 }
   live-laugh-tomcruise: { ip: 10.42.10.51 }
@@ -88,7 +88,7 @@ pbs_cluster_user: pve@pbs
 pbs_cluster_role: DatastorePowerUser
 # The operator token InfluxDB is set up with; lives in .env so it never needs to be in the repo
 influxdb_token: "{{ lookup('ansible.builtin.env', 'INFLUXDB_TOKEN') }}"
-# media_node pools its three 2 TB HDDs with mergerfs at /mnt/pool, set up by hand (README: Media), and
+# media_node pools its three 2 TB HDDs with mergerfs at /mnt/pool, set up by hand, and
 # media_host_path on it is bind-mounted into every guest in media_guests at media_path (roles/media_mount),
 # so downloads and the library share one filesystem and Sonarr/Radarr can hardlink instead of copying
 media_node: live-laugh-nicolekidman

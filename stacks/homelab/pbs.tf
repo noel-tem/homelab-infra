@@ -50,7 +50,7 @@ module "pbs2" {
   disk_size       = 8
   # nicolekidman has no local-lvm, only ZFS
   datastore_id = "local-zfs"
-  # hdd-backup is the 1 TB HDD, set up by hand (README: Backups), all of it for the datastore; like pbs's, kept out of backups
+  # hdd-backup is the 1 TB HDD, set up by hand, all of it for the datastore; like pbs's, kept out of backups
   mount_points = [{ volume = "hdd-backup", size = "930G", path = "/mnt/datastore" }]
   tags         = ["backup"]
 }

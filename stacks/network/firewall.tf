@@ -76,7 +76,7 @@ resource "routeros_ip_firewall_nat" "masquerade" {
   comment            = "lan-to-wan"
 }
 
-# TEMPORARY, from Pi-hole's move to services (README: VLANs, phase 5): devices keep the old DNS server from their
+# TEMPORARY, from Pi-hole's move to services: devices keep the old DNS server from their
 # DHCP lease for up to a day, so their queries to it are sent on to Pi-hole's new address. Doesn't help the flat
 # LAN itself, which reaches the old address without the router. Remove once every lease has renewed
 locals {
