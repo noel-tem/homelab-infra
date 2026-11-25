@@ -35,6 +35,32 @@
     - item.storage_id in pbs_storage_list.stdout | from_json | map(attribute='storage')
     - pbs_storage_current.server != guests[item.guest].ip
 
+# Every backup is encrypted on the node before it's sent, so pbs, pbs2 and the B2 copy (roles/pbs_offsite) only
+# ever hold encrypted data. Both storages get the same key: pbs2 restores the copies it pulled from pbs.
+# Only set when missing, so the key is never swapped by accident; changing it is a manual job (README: Backups)
+- name: Check which storages have the encryption key
+  ansible.builtin.stat:
+    path: /etc/pve/priv/storage/{{ item.storage_id }}.enc
+  loop: "{{ pbs_storage_servers }}"
+  register: pbs_storage_key_files
+
+- name: Require the encryption key
+  ansible.builtin.assert:
+    that: pbs_storage_encryption_key | length > 0
+    fail_msg: "Set PBS_ENCRYPTION_KEY to encrypt backups (README: Backups)"
+  when: pbs_storage_key_files.results | rejectattr('stat.exists') | list | length > 0
+
+# pvesh rather than pvesm, which wants a path to a key file instead of the key itself
+- name: Give the storages the encryption key
+  ansible.builtin.command:
+    argv: [pvesh, set, "/storage/{{ item.item.storage_id }}", "--encryption-key={{ pbs_storage_encryption_key }}"]
+  loop: "{{ pbs_storage_key_files.results }}"
+  loop_control:
+    label: "{{ item.item.storage_id }}"
+  changed_when: true
+  when: not item.stat.exists
+  no_log: true
+
 - name: Read backup jobs
   ansible.builtin.command: pvesh get /cluster/backup --output-format json
   register: pbs_storage_jobs

@@ -4,6 +4,9 @@ pbs_storage_servers:
   - { guest: pbs, storage_id: pbs }
   - { guest: pbs2, storage_id: pbs2 }
 pbs_storage_token_name: cluster
+# The key every backup is encrypted with, as a proxmox-backup-client key file's JSON; only read while a storage
+# doesn't have it yet. Keep a copy outside the house: without it, nothing in pbs, pbs2 or B2 can be restored
+pbs_storage_encryption_key: "{{ lookup('ansible.builtin.env', 'PBS_ENCRYPTION_KEY') }}"
 # Applies to every job that backs up to these storages; pbs2 prunes its own copies on the same terms (roles/pbs_sync)
 pbs_storage_retention: keep-daily=7,keep-weekly=4,keep-monthly=3
 pbs_storage_job_id: nightly

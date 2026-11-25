@@ -1,0 +1,29 @@
+# pbs2 copies its backups to a Backblaze B2 bucket every morning, so losing the house loses nothing
+# The bucket and its key are made by hand in B2 (README: Backups); these are only read on the first run,
+# when the endpoint and datastore are created, so they never need to be in the repo
+pbs_offsite_b2_key_id: "{{ lookup('ansible.builtin.env', 'B2_KEY_ID') }}"
+pbs_offsite_b2_application_key: "{{ lookup('ansible.builtin.env', 'B2_APPLICATION_KEY') }}"
+pbs_offsite_b2_bucket: "{{ lookup('ansible.builtin.env', 'B2_BUCKET') }}"
+# The bucket's region, from its S3 endpoint in the B2 web UI (s3.<region>.backblazeb2.com), e.g. us-west-004
+pbs_offsite_b2_region: "{{ lookup('ansible.builtin.env', 'B2_REGION') }}"
+# PBS wants at least 3 characters
+pbs_offsite_endpoint_id: backblaze
+# Also the prefix of every object in the bucket; a rebuilt pbs2 has to use the same name to find them
+pbs_offsite_datastore: offsite
+# Everything lives in the bucket; this is only PBS's local cache of it, on the same HDD as pbs2's datastore
+pbs_offsite_cache_path: /mnt/datastore/{{ pbs_offsite_datastore }}-cache
+# Set to true (-e pbs_offsite_reuse=true) when a rebuilt pbs2 should take over the datastore already in the bucket
+pbs_offsite_reuse: false
+pbs_offsite_gc_schedule: sat 09:00
+# Copies pbs2's datastore (pbs_datastore) after the morning pull from pbs (05:00, roles/pbs_sync).
+# Only encrypted backups (roles/pbs_storage), so nothing readable ever leaves the house
+pbs_offsite_sync_job_id: offsite
+pbs_offsite_sync_schedule: "06:00"
+# Pruned on the same terms as pbs and pbs2 (pbs_storage_retention, pbs_sync_keep), after the copy
+pbs_offsite_prune_job_id: offsite-retention
+pbs_offsite_prune_schedule: "08:00"
+pbs_offsite_keep: { daily: 7, weekly: 4, monthly: 3 }
+# Reading a backup back downloads it; B2 doesn't charge for downloads up to 3x what's stored, so monthly is free
+pbs_offsite_verify_job_id: offsite-verify
+pbs_offsite_verify_schedule: monthly
+pbs_offsite_verify_outdated_after: 30

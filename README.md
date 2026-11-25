@@ -124,7 +124,19 @@ Jellyfin and the arr stack are separate containers on `live-laugh-nicolekidman` 
 
 - Every guest is backed up nightly to `pbs` (7 daily, 4 weekly, 3 monthly).
 - `pbs2`, on another node, pulls each new backup and keeps its own copy, so losing `pbs` or its disk loses nothing.
-- Both are in the same house, so neither covers losing the house.
+- `pbs2` then copies them to a Backblaze B2 bucket (datastore `offsite`, [`roles/pbs_offsite`](ansible/roles/pbs_offsite/)), so losing the house loses nothing either. Same retention, verified monthly.
+- The nodes encrypt every backup before sending it, and only encrypted backups go to B2. The key is `PBS_ENCRYPTION_KEY`, and **a copy has to live outside the house** (a password manager), or nothing in B2 can be restored.
+
+Setting up B2, once:
+
+1. In B2, make a private bucket, and set its lifecycle to **Keep only the last version**, or space PBS frees is never given back. Note the region in its S3 endpoint (`s3.<region>.backblazeb2.com`).
+2. Make an application key with read and write access to that bucket only.
+3. On a node, make the encryption key: `proxmox-backup-client key create --kdf none /root/pbs.key`, then `tr -d '\n' < /root/pbs.key` for a one-line copy. Put it in the password manager, then `rm /root/pbs.key`.
+4. Add `PBS_ENCRYPTION_KEY` (in single quotes), `B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET` and `B2_REGION` to `.env`, then run `playbooks/pbs.yml` by hand before pushing, since the deployer doesn't have them.
+
+Backups made before the key was set stay unencrypted on `pbs` and `pbs2` until they age out, and are never copied to B2.
+
+After losing the house: rebuild `pbs2` with the same B2 settings and run `playbooks/pbs.yml -e pbs_offsite_reuse=true`, which takes over the datastore already in the bucket. Then add `offsite` to a node as PBS storage, with the key, and restore from it.
 
 ### CI
 

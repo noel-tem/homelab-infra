@@ -53,3 +53,9 @@
   hosts: pbs2
   roles:
     - pbs_sync
+
+# pbs2 copies its encrypted backups to B2 each morning, so losing the house loses nothing (roles/pbs_offsite)
+- name: Copy pbs2's backups to Backblaze B2
+  hosts: pbs2
+  roles:
+    - pbs_offsite
