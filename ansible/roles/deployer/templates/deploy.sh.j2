@@ -14,6 +14,8 @@ if [ ! -d "$repo/.git" ]; then
   git clone --quiet {{ gitea_url }}/{{ gitea_repo }}.git "$repo"
 fi
 cd "$repo"
+# The clone keeps the URL it was made with, so follow Gitea when it moves
+git remote set-url origin {{ gitea_url }}/{{ gitea_repo }}.git
 git fetch --quiet origin main
 sha=$(git rev-parse FETCH_HEAD)
 

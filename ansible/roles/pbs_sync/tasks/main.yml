@@ -16,6 +16,22 @@
   when: pbs_sync_remote_missing
   no_log: true
 
+# The address is the only thing compared, so the pull keeps working after pbs moves; pbs_sync_remotes is from check.yml
+- name: Point the remote at pbs's current address
+  ansible.builtin.command:
+    argv:
+      - proxmox-backup-manager
+      - remote
+      - update
+      - "{{ pbs_sync_remote }}"
+      - --host={{ guests[pbs_sync_source].ip }}
+  vars:
+    pbs_sync_current: "{{ pbs_sync_remotes.stdout | from_json | selectattr('name', '==', pbs_sync_remote) | first }}"
+  changed_when: true
+  when:
+    - pbs_sync_remote in pbs_sync_remotes.stdout | default('[]', true) | from_json | map(attribute='name')
+    - pbs_sync_current.host != guests[pbs_sync_source].ip
+
 - name: Read sync jobs
   ansible.builtin.command: proxmox-backup-manager sync-job list --output-format json
   register: pbs_sync_jobs

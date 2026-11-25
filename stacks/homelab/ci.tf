@@ -20,7 +20,9 @@ module "ci" {
   start_on_boot    = local.ci_running
   node_name        = local.guests[each.key].node
   template_file_id = local.debian_template[local.guests[each.key].node]
-  ipv4_address     = "${local.guests[each.key].ip}/24"
+  ipv4_address     = "${local.guests[each.key].ip}/${local.guest_prefixes[each.key]}"
+  ipv4_gateway     = local.guest_gateways[each.key]
+  vlan_id          = local.guest_networks[each.key].vlan_id
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = local.pihole_ips
   ssh_public_keys = local.ssh_keys

@@ -9,6 +9,13 @@ arr_uid: "{{ media_uid }}"
 arr_timezone: America/Los_Angeles
 # Surfshark server location for gluetun, by country name (comma-separated for several)
 arr_vpn_countries: United States
+# Subnets gluetun routes outside the tunnel, so the web UIs can answer them: services, where Caddy is and where
+# tailnet traffic comes from (the nodes' subnet routers), the clients that open the UIs directly, and media itself,
+# where Jellyfin is
+arr_outbound_subnets:
+  - "{{ vlans.services.subnet }}"
+  - "{{ vlans.clients.subnet }}"
+  - "{{ vlans.media.subnet }}"
 # Only read when the secrets file doesn't exist yet, so they never need to be in the repo (README: Media)
 arr_wireguard_private_key: "{{ lookup('ansible.builtin.env', 'SURFSHARK_WIREGUARD_PRIVATE_KEY') }}"
 arr_wireguard_address: "{{ lookup('ansible.builtin.env', 'SURFSHARK_WIREGUARD_ADDRESS') }}"

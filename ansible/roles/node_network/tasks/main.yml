@@ -1,0 +1,51 @@
+# Makes vmbr0 VLAN-aware, so guests can be put on the router's VLANs with a tag (README: VLANs). Untagged traffic,
+# which is the node itself and every untagged guest, stays on VLAN 1 as before. The rest of
+# /etc/network/interfaces is still the installer's, edited by hand
+- name: Read the cluster's state
+  ansible.builtin.command: pvecm status
+  register: node_network_cluster
+  changed_when: false
+  check_mode: false
+
+# ifreload can drop the node off the cluster for a moment, so never touch one while another is already missing
+- name: Check every node is in the cluster
+  ansible.builtin.assert:
+    that:
+      - node_network_cluster.stdout is search('Quorate:\s+Yes')
+      - (node_network_cluster.stdout | regex_findall('Total votes:\s+(\d+)') | first | int) == groups['proxmox'] | length
+    fail_msg: The cluster isn't quorate with all {{ groups['proxmox'] | length }} nodes; fix that first
+
+- name: Read the network config
+  ansible.builtin.slurp:
+    src: /etc/network/interfaces
+  register: node_network_interfaces
+
+# The lines below go after the first bridge-fd, so that has to be vmbr0's and the only one
+- name: Check vmbr0 is the only bridge
+  ansible.builtin.assert:
+    that:
+      - (node_network_interfaces.content | b64decode | regex_findall('(?m)^\s*bridge-fd') | length) == 1
+      - node_network_interfaces.content | b64decode is search('(?m)^iface vmbr0 ')
+    fail_msg: /etc/network/interfaces doesn't have exactly one bridge, vmbr0; add the VLAN lines by hand
+
+# Both go right after bridge-fd, which is always there, so this one goes in first and ends up second
+# Every VLAN a guest can be tagged into; Proxmox's own default for a VLAN-aware bridge
+- name: Allow every VLAN on vmbr0
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    regexp: '^\s*bridge-vids\s'
+    line: "\tbridge-vids 2-4094"
+    insertafter: '^\s*bridge-fd\s'
+  notify: Reload networking
+
+- name: Make vmbr0 VLAN-aware
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    regexp: '^\s*bridge-vlan-aware\s'
+    line: "\tbridge-vlan-aware yes"
+    insertafter: '^\s*bridge-fd\s'
+  notify: Reload networking
+
+# So the next node (the play is serial) only starts once this one is back in the cluster
+- name: Apply the change before moving on
+  ansible.builtin.meta: flush_handlers

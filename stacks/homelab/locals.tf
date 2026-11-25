@@ -6,6 +6,17 @@ locals {
   guests = local.shared.guests
   # From all.yml rather than ~/.ssh, so a plan on the deployer (which has its own key) matches one run here
   ssh_keys = [local.shared.ssh_public_key]
+  # Each guest's network: its vlan's from all.yml, or the flat LAN's (untagged) if it has none
+  guest_networks = {
+    for name, g in local.guests : name => (
+      lookup(g, "vlan", null) == null
+      ? { vlan_id = null, subnet = local.shared.home_subnet }
+      : { vlan_id = local.shared.vlans[g.vlan].id, subnet = local.shared.vlans[g.vlan].subnet }
+    )
+  }
+  guest_gateways = { for name, n in local.guest_networks : name => cidrhost(n.subnet, 1) }
+  guest_prefixes = { for name, n in local.guest_networks : name => split("/", n.subnet)[1] }
+
   # The Pi-hole; HA restarts it on another node if its node goes down
   pihole_ips = [local.guests.pihole.ip]
 

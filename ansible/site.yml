@@ -32,6 +32,8 @@
   ansible.builtin.import_playbook: playbooks/jellyfin.yml
 - name: Arr stack
   ansible.builtin.import_playbook: playbooks/arr.yml
+- name: Obsidian LiveSync
+  ansible.builtin.import_playbook: playbooks/livesync.yml
 - name: Uptime Kuma
   ansible.builtin.import_playbook: playbooks/uptimekuma.yml
 - name: InfluxDB and Grafana

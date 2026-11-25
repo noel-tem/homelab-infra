@@ -14,7 +14,9 @@ module "caddy" {
   start_on_boot    = local.caddy_running
   node_name        = local.guests.caddy.node
   template_file_id = local.debian_template[local.guests.caddy.node]
-  ipv4_address     = "${local.guests.caddy.ip}/24"
+  ipv4_address     = "${local.guests.caddy.ip}/${local.guest_prefixes.caddy}"
+  ipv4_gateway     = local.guest_gateways.caddy
+  vlan_id          = local.guest_networks.caddy.vlan_id
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = local.pihole_ips
   ssh_public_keys = local.ssh_keys

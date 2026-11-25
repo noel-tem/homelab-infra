@@ -14,7 +14,9 @@ module "pbs" {
   start_on_boot    = local.pbs_running
   node_name        = local.guests.pbs.node
   template_file_id = local.debian_template[local.guests.pbs.node]
-  ipv4_address     = "${local.guests.pbs.ip}/24"
+  ipv4_address     = "${local.guests.pbs.ip}/${local.guest_prefixes.pbs}"
+  ipv4_gateway     = local.guest_gateways.pbs
+  vlan_id          = local.guest_networks.pbs.vlan_id
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = local.pihole_ips
   ssh_public_keys = local.ssh_keys
@@ -37,7 +39,9 @@ module "pbs2" {
   start_on_boot    = local.pbs_running
   node_name        = local.guests.pbs2.node
   template_file_id = local.debian_template[local.guests.pbs2.node]
-  ipv4_address     = "${local.guests.pbs2.ip}/24"
+  ipv4_address     = "${local.guests.pbs2.ip}/${local.guest_prefixes.pbs2}"
+  ipv4_gateway     = local.guest_gateways.pbs2
+  vlan_id          = local.guest_networks.pbs2.vlan_id
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = local.pihole_ips
   ssh_public_keys = local.ssh_keys

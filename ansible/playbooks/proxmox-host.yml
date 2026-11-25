@@ -7,3 +7,10 @@
       when: inventory_hostname == disk_storage_node
     - role: cpu_governor
       when: inventory_hostname in cpu_governor_nodes
+
+# One node at a time, so a network reload never takes more than one out of the cluster at once
+- name: Node networking
+  hosts: proxmox
+  serial: 1
+  roles:
+    - node_network

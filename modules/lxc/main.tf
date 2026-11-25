@@ -61,6 +61,7 @@ resource "proxmox_virtual_environment_container" "this" {
     name     = var.interface_name
     bridge   = "vmbr0"
     firewall = var.firewall
+    vlan_id  = var.vlan_id
   }
 
   # Omitted when nesting is off: privileged containers only accept features from root@pam

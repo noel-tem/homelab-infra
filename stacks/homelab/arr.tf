@@ -15,7 +15,9 @@ module "arr" {
   start_on_boot    = local.arr_running
   node_name        = local.guests.arr.node
   template_file_id = local.debian_template[local.guests.arr.node]
-  ipv4_address     = "${local.guests.arr.ip}/24"
+  ipv4_address     = "${local.guests.arr.ip}/${local.guest_prefixes.arr}"
+  ipv4_gateway     = local.guest_gateways.arr
+  vlan_id          = local.guest_networks.arr.vlan_id
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = local.pihole_ips
   ssh_public_keys = local.ssh_keys

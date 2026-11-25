@@ -4,41 +4,57 @@ cpu_governor_nodes: [live-laugh-nicolekidman]
 # Root's key in every container; Tofu reads it from here so the deployer (which has its own key) builds identical containers
 ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJm21vYZqBMhgV4jXQ1WQcaCt15tPdzDx8ElhJoigcgs noel@wsl
 home_subnet: 192.168.0.0/24
-# Proxmox cluster nodes, keyed by node name; each is in the Ansible inventory and runs a subnet router
+# The VLANs the router routes between (stacks/network). The third octet is the VLAN ID, and a guest keeps its last
+# octet when it moves into one. home_subnet is VLAN 1, untagged, and holds only the router and the switch
+# (README: VLANs)
+vlans:
+  services: { id: 10, subnet: 10.42.10.0/24 }
+  media: { id: 20, subnet: 10.42.20.0/24 }
+  iot: { id: 30, subnet: 10.42.30.0/24 }
+  clients: { id: 40, subnet: 10.42.40.0/24 }
+# The VLANs the nodes' subnet routers advertise to the tailnet (roles/subnet_router), which stacks/tailnet approves,
+# on top of home_subnet, which stays for the router and the switch. Names, not subnets, since Tofu reads this file
+# as plain YAML. iot and clients aren't reachable from the tailnet
+tailnet_vlans: [services, media]
+# Proxmox cluster nodes, keyed by node name; each is in the Ansible inventory and runs a subnet router. They're on
+# services, which /etc/network/interfaces sets by hand rather than through Ansible (README: VLANs)
 nodes:
-  live-laugh-homelab: { ip: 192.168.0.50 }
-  live-laugh-tomcruise: { ip: 192.168.0.51 }
+  live-laugh-homelab: { ip: 10.42.10.50 }
+  live-laugh-tomcruise: { ip: 10.42.10.51 }
   # i7-6700K with an iGPU, root on ZFS; holds the HDDs
-  live-laugh-nicolekidman: { ip: 192.168.0.52 }
+  live-laugh-nicolekidman: { ip: 10.42.10.52 }
 # The one place guest IDs, addresses and nodes live; Tofu reads this file too (stacks/homelab/locals.tf)
 # node is where Tofu creates the guest; moving it later doesn't need a change here, since Tofu ignores the
 # node after creation and Ansible connects through whichever node it's on (playbooks/locate-guests.yml)
 # running: false switches a guest off: Tofu stops it and keeps it down across reboots, and Ansible skips it
 # failover puts a guest under Proxmox HA: it's replicated to that node and restarted there if its own node goes down,
 # then moved back once it returns (stacks/homelab/ha.tf, README: High availability)
+# vlan puts a guest on one of the vlans above, with ip in its subnet; without it, it's on the flat LAN (home_subnet)
 guests:
-  pihole: { vmid: 100, ip: 192.168.0.10, node: live-laugh-homelab, failover: live-laugh-tomcruise }
-  # DHCP; Tofu doesn't set this one, it's only here for proxied_services
+  pihole: { vmid: 100, ip: 10.42.10.10, vlan: services, node: live-laugh-homelab, failover: live-laugh-tomcruise }
+  # DHCP; Tofu doesn't set the address, the router's reservation does (stacks/network/locals.tf)
   # Fails over to nicolekidman, not tomcruise: a live migration between Intel (homelab) and AMD (tomcruise) froze
   # it for minutes on failback, and nicolekidman is Intel too
-  homeassistant: { vmid: 102, ip: 192.168.0.83, node: live-laugh-homelab, failover: live-laugh-nicolekidman }
-  mosquitto: { vmid: 104, ip: 192.168.0.20, node: live-laugh-homelab }
-  caddy: { vmid: 105, ip: 192.168.0.21, node: live-laugh-homelab, failover: live-laugh-tomcruise }
-  gitea: { vmid: 106, ip: 192.168.0.22, node: live-laugh-tomcruise, failover: live-laugh-homelab }
+  homeassistant: { vmid: 102, ip: 10.42.30.83, vlan: iot, node: live-laugh-homelab, failover: live-laugh-nicolekidman }
+  mosquitto: { vmid: 104, ip: 10.42.30.20, vlan: iot, node: live-laugh-homelab }
+  caddy: { vmid: 105, ip: 10.42.10.21, vlan: services, node: live-laugh-homelab, failover: live-laugh-tomcruise }
+  gitea: { vmid: 106, ip: 10.42.10.22, vlan: services, node: live-laugh-tomcruise, failover: live-laugh-homelab }
   # Needs a node with an iGPU at /dev/dri/renderD128, and the media is a bind mount from media_node, so it has to stay there
-  jellyfin: { vmid: 107, ip: 192.168.0.23, node: live-laugh-nicolekidman }
-  uptimekuma: { vmid: 108, ip: 192.168.0.24, node: live-laugh-homelab }
-  metrics: { vmid: 109, ip: 192.168.0.25, node: live-laugh-homelab }
+  jellyfin: { vmid: 107, ip: 10.42.20.23, vlan: media, node: live-laugh-nicolekidman }
+  uptimekuma: { vmid: 108, ip: 10.42.10.24, vlan: services, node: live-laugh-homelab }
+  metrics: { vmid: 109, ip: 10.42.10.25, vlan: services, node: live-laugh-homelab }
   # Its datastore is on the SSD, so it has to stay on that node (see disk_storage)
-  pbs: { vmid: 110, ip: 192.168.0.26, node: live-laugh-tomcruise }
+  pbs: { vmid: 110, ip: 10.42.10.26, vlan: services, node: live-laugh-tomcruise }
   # Second copy of pbs's backups, pulled every morning (roles/pbs_sync); its datastore is on nicolekidman's 1 TB HDD
-  pbs2: { vmid: 115, ip: 192.168.0.32, node: live-laugh-nicolekidman }
+  pbs2: { vmid: 115, ip: 10.42.10.32, vlan: services, node: live-laugh-nicolekidman }
   # CI: a Gitea Actions runner for Claude and lint jobs (no infra credentials), and the agent that deploys main (README: CI)
-  runner: { vmid: 112, ip: 192.168.0.29, node: live-laugh-homelab }
-  deployer: { vmid: 113, ip: 192.168.0.30, node: live-laugh-homelab }
+  runner: { vmid: 112, ip: 10.42.10.29, vlan: services, node: live-laugh-homelab }
+  deployer: { vmid: 113, ip: 10.42.10.30, vlan: services, node: live-laugh-homelab }
   # Sonarr, Radarr, Prowlarr, FlareSolverr, Bazarr, Seerr and qBittorrent behind Surfshark (roles/arr)
   # Shares jellyfin's media, so it has to be on media_node too
-  arr: { vmid: 114, ip: 192.168.0.31, node: live-laugh-nicolekidman }
+  arr: { vmid: 114, ip: 10.42.20.31, vlan: media, node: live-laugh-nicolekidman }
+  # CouchDB for Obsidian LiveSync (roles/livesync); no failover, since every synced device holds the whole vault
+  livesync: { vmid: 116, ip: 10.42.10.33, vlan: services, node: live-laugh-tomcruise }
 # The repo CI runs for; the runner registers with this Gitea and the deployer pulls from it
 gitea_url: http://{{ guests.gitea.ip }}:3000
 gitea_repo: noeltem/homelab-infra
@@ -57,6 +73,7 @@ proxied_services:
   qbit: "{{ guests.arr.ip }}:8080"
   sabnzbd: "{{ guests.arr.ip }}:8085"
   seerr: "{{ guests.arr.ip }}:5055"
+  livesync: "{{ guests.livesync.ip }}:5984"
   # PBS only serves HTTPS
   pbs: "https://{{ guests.pbs.ip }}:8007"
   pbs2: "https://{{ guests.pbs2.ip }}:8007"

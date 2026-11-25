@@ -1,0 +1,14 @@
+# Compose project and the admin secrets
+livesync_path: /opt/livesync
+# CouchDB's database and its local.d config, on the root disk so PBS backs them up
+livesync_data: /var/lib/livesync
+# Update by bumping the tag and rerunning the role
+livesync_image: couchdb:3.5.3
+# The image's couchdb user; its entrypoint chowns and chmods everything under /opt/couchdb to it on every start
+livesync_couchdb_uid: 5984
+# The account the LiveSync plugin logs in as
+livesync_admin_user: obsidian
+# Only read when the secrets file doesn't exist yet, so it never needs to be in the repo (README: Obsidian LiveSync)
+livesync_admin_password: "{{ lookup('ansible.builtin.env', 'LIVESYNC_COUCHDB_PASSWORD') }}"
+# Where the Obsidian apps send requests from: desktop, iOS and Android
+livesync_cors_origins: [app://obsidian.md, capacitor://localhost, http://localhost]

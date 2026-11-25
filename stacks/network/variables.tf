@@ -34,3 +34,13 @@ variable "wifi_enabled" {
   type    = bool
   default = true
 }
+
+# The IoT gadgets' own network (wifi.tf), so they never learn the main passphrase
+variable "wifi_iot_ssid" {
+  type = string
+}
+
+variable "wifi_iot_passphrase" {
+  type      = string
+  sensitive = true
+}

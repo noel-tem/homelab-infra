@@ -1,4 +1,4 @@
-# Uptime checks and alerts; first visit to http://192.168.0.24:3001 creates the admin account
+# Uptime checks and alerts; first visit to http://10.42.10.24:3001 creates the admin account
 # Ansible installs and runs Uptime Kuma (ansible/roles/uptime_kuma)
 locals {
   # false shuts the container down (and keeps it down across host reboots); data is kept
@@ -14,7 +14,9 @@ module "uptimekuma" {
   start_on_boot    = local.uptimekuma_running
   node_name        = local.guests.uptimekuma.node
   template_file_id = local.debian_template[local.guests.uptimekuma.node]
-  ipv4_address     = "${local.guests.uptimekuma.ip}/24"
+  ipv4_address     = "${local.guests.uptimekuma.ip}/${local.guest_prefixes.uptimekuma}"
+  ipv4_gateway     = local.guest_gateways.uptimekuma
+  vlan_id          = local.guest_networks.uptimekuma.vlan_id
   # The host's resolv.conf points at Tailscale's resolver, which containers can't reach
   dns_servers     = local.pihole_ips
   ssh_public_keys = local.ssh_keys

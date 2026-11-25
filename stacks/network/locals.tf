@@ -8,7 +8,7 @@ locals {
   # The router is .1, as the old one was, so nothing on the LAN needs a new gateway
   router_ip = cidrhost(local.shared.home_subnet, 1)
 
-  # ether1 is the WAN (the ISP box, in bridge mode). ether5 is left out of the bridge as an out-of-band
+  # ether1 is the WAN (the ISP box, an AT&T BGW320 in IP Passthrough). ether5 is left out of the bridge as an out-of-band
   # management port with the bootstrap's 192.168.88.1/24; Tofu never touches its address
   wan_port    = "ether1"
   mgmt_port   = "ether5"
@@ -21,11 +21,17 @@ locals {
   # Addresses DHCP must keep fixed, by MAC
   static_leases = {
     # Home Assistant OS takes its address by DHCP; the MAC is its network_device in stacks/homelab/homeassistant.tf
-    homeassistant = { mac = "02:AF:81:79:C4:10", ip = local.shared.guests.homeassistant.ip }
+    homeassistant = {
+      mac  = "02:AF:81:79:C4:10"
+      ip   = local.shared.guests.homeassistant.ip
+      vlan = local.shared.guests.homeassistant.vlan
+    }
 
-    # Carried over from the old router's reservations, at the same addresses
-    dennis          = { mac = "78:AF:08:66:CC:9F", ip = "192.168.0.58" }
-    desktop-qames3t = { mac = "B4:2E:99:FD:DF:DE", ip = "192.168.0.43" }
-    dennis-thinkpad = { mac = "50:7B:9D:75:29:1A", ip = "192.168.0.154" } # its wired port
+    # Carried over from the old router's reservations, keeping their last octet on clients
+    dennis          = { mac = "78:AF:08:66:CC:9F", ip = cidrhost(local.vlans.clients.subnet, 58), vlan = "clients" }
+    desktop-qames3t = { mac = "B4:2E:99:FD:DF:DE", ip = cidrhost(local.vlans.clients.subnet, 43), vlan = "clients" }
+    dennis-thinkpad = { mac = "50:7B:9D:75:29:1A", ip = cidrhost(local.vlans.clients.subnet, 154), vlan = "clients" } # its wired port
+    # Fixed so Home Assistant can be let through to it (firewall.tf)
+    living-room-tv = { mac = "20:1F:3B:1B:37:40", ip = cidrhost(local.vlans.clients.subnet, 144), vlan = "clients" }
   }
 }

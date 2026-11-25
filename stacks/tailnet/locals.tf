@@ -5,6 +5,9 @@ locals {
   # The Pi-hole that answers *.home.arpa
   pihole_ips = [local.shared.guests.pihole.ip]
 
+  # What the subnet routers advertise (tailnet_vlans in all.yml); roles/subnet_router builds the same list
+  routes = concat([local.shared.home_subnet], [for v in local.shared.tailnet_vlans : local.shared.vlans[v].subnet])
+
   # Each node's Proxmox name is also its Tailscale hostname
   nodes = local.shared.nodes
 }
