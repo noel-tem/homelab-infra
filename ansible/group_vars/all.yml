@@ -41,8 +41,10 @@ guests:
   gitea: { vmid: 106, ip: 10.42.10.22, vlan: services, node: live-laugh-tomcruise, failover: live-laugh-homelab }
   # Needs a node with an iGPU at /dev/dri/renderD128, and the media is a bind mount from media_node, so it has to stay there
   jellyfin: { vmid: 107, ip: 10.42.20.23, vlan: media, node: live-laugh-nicolekidman }
-  uptimekuma: { vmid: 108, ip: 10.42.10.24, vlan: services, node: live-laugh-homelab }
-  metrics: { vmid: 109, ip: 10.42.10.25, vlan: services, node: live-laugh-homelab }
+  # Not on homelab, which holds most of what it watches, so losing that node still raises an alert
+  uptimekuma: { vmid: 108, ip: 10.42.10.24, vlan: services, node: live-laugh-tomcruise }
+  # Off homelab too, so the graphs keep recording through that node's outages
+  metrics: { vmid: 109, ip: 10.42.10.25, vlan: services, node: live-laugh-tomcruise }
   # Its datastore is on the SSD, so it has to stay on that node (see disk_storage)
   pbs: { vmid: 110, ip: 10.42.10.26, vlan: services, node: live-laugh-tomcruise }
   # Second copy of pbs's backups, pulled every morning (roles/pbs_sync); its datastore is on nicolekidman's 1 TB HDD
