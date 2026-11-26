@@ -1,0 +1,29 @@
+# BBR instead of CUBIC for TCP sent from here. Remote networks that drop a few percent of packets at random made
+# CUBIC back off on every loss: Jellyfin over Tailscale ran at 1-4 Mbps from a fiber connection with ~6% loss, and
+# at the full 110 Mbps of upload with BBR, which doesn't take loss alone as a sign of congestion
+
+- name: Load the BBR module at boot
+  ansible.builtin.copy:
+    content: "tcp_bbr\n"
+    dest: /etc/modules-load.d/tcp-bbr.conf
+    mode: "0644"
+  when: tcp_bbr_load_module
+
+- name: Check whether the BBR module is loaded
+  ansible.builtin.stat:
+    path: /sys/module/tcp_bbr
+  register: tcp_bbr_module
+  when: tcp_bbr_load_module
+
+- name: Load the BBR module
+  ansible.builtin.command: modprobe tcp_bbr
+  changed_when: true
+  when: tcp_bbr_load_module and not tcp_bbr_module.stat.exists
+
+# Per network namespace, so each container sets its own; a container started after its node switched inherits it
+- name: Use BBR
+  ansible.builtin.copy:
+    content: "net.ipv4.tcp_congestion_control = bbr\n"
+    dest: /etc/sysctl.d/90-tcp-bbr.conf
+    mode: "0644"
+  notify: Apply BBR

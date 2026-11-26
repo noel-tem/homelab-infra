@@ -5,3 +5,5 @@
   hosts: caddy
   roles:
     - caddy
+    # Relays Jellyfin to clients that use https://jellyfin.home.arpa, so it's the one sending to them
+    - tcp_bbr

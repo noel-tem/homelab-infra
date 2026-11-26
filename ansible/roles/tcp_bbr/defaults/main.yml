@@ -1,0 +1,3 @@
+# Containers share their node's kernel and can't load modules, so only the nodes load BBR; the containers then
+# just switch to it, which fails if their node hasn't loaded it (playbooks/proxmox-host.yml runs first in site.yml)
+tcp_bbr_load_module: false

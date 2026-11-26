@@ -2,6 +2,9 @@
   hosts: proxmox
   roles:
     - subnet_router
+    # Before the containers' plays, which switch to BBR and need the module loaded here
+    - role: tcp_bbr
+      tcp_bbr_load_module: true
     # Before stacks/homelab is applied, since PBS's volume and the shared media go on these disks
     - role: disk_storage
       when: inventory_hostname == disk_storage_node

@@ -1,0 +1,6 @@
+# Only new connections pick it up; open ones keep CUBIC until they close
+- name: Apply BBR
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/90-tcp-bbr.conf
+  changed_when: true
+  # Only notified when the file changed, which on a dry run means it isn't written
+  when: not ansible_check_mode

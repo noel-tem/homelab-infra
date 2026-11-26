@@ -27,6 +27,8 @@
     - jellyfin
     # SMB share of the media for copying files in
     - media_share
+    # Streams to remote clients, whose connections are the lossy ones
+    - tcp_bbr
 
 # After Jellyfin is installed, so its user is already in the container's render group
 - name: Give Jellyfin the iGPU
